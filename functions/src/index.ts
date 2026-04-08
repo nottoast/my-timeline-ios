@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { User, CreateUserRequest, CreateUserResponse } from '../../types';
+import { User, CreateUserRequest, CreateUserResponse } from '../../src/types';
 import type { CallableContext } from 'firebase-functions/v1/https';
 
 // Initialize Firebase Admin

@@ -36,7 +36,7 @@ npm install
 
 ## 4. Using Firebase in Your App
 
-Firebase is initialized in `config/firebase.ts`. Import the services you need:
+Firebase is initialized in `src/config/firebase.ts`. Import the services you need:
 
 ```typescript
 import { auth, db, storage } from '@/config/firebase';
