@@ -94,3 +94,8 @@ yarn-error.*
 # Temporary files
 *.tmp
 *.temp
+
+# Firebase Functions
+functions/lib/
+functions/node_modules/
+functions/.runtimeconfig.json

@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import Constants from 'expo-constants';
+import { measure } from 'react-native-reanimated';
 
 // Firebase configuration using environment variables
 const firebaseConfig = {
@@ -12,6 +13,7 @@ const firebaseConfig = {
   storageBucket: Constants.expoConfig?.extra?.firebaseStorageBucket,
   messagingSenderId: Constants.expoConfig?.extra?.firebaseMessagingSenderId,
   appId: Constants.expoConfig?.extra?.firebaseAppId,
+  measurementId: Constants.expoConfig?.extra?.firebaseMeasurementId,
 };
 
 // Initialize Firebase only if it hasn't been initialized already
