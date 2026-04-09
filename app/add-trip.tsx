@@ -163,7 +163,7 @@ export default function AddTripScreen() {
     }
 
     const tripData: any = {
-      startDate: startDate.toISOString(),
+      tripDate: startDate.toISOString(),
       fromCountryId,
       toCountryId,
       isRoundTrip,
@@ -191,10 +191,11 @@ export default function AddTripScreen() {
       if (response.success && response.trip) {
         Alert.alert('Success', 'Trip created successfully!');
         if (isChildTrip && parentTripId) {
-          // Navigate back to parent trip instead of the newly created child trip
+          // Navigate to parent trip after creating child trip
           router.push(`/trip/${parentTripId}`);
         } else {
-          router.push(`/trip/${response.trip.id}`);
+          // Navigate to timeline after creating parent trip
+          router.push('/view-trips');
         }
       } else {
         Alert.alert('Error', response.message || 'Failed to create trip');

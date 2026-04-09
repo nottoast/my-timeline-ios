@@ -101,7 +101,7 @@ export default function ViewTripsScreen() {
             userId: data.userId,
             tripType: data.tripType,
             name: data.name,
-            startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+            tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
             fromCountryId: data.fromCountryId,
             fromCountryName: data.fromCountryName,
             toCountryId: data.toCountryId,
@@ -111,9 +111,9 @@ export default function ViewTripsScreen() {
           } as Trip);
         });
 
-        // Sort by startDate descending (newest first)
+        // Sort by tripDate descending (newest first)
         fetchedTrips.sort((a, b) => {
-          return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+          return new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime();
         });
 
         console.log('Real-time update: Parent trips:', fetchedTrips.length);
@@ -147,7 +147,7 @@ export default function ViewTripsScreen() {
             userId: data.userId,
             tripType: data.tripType,
             name: data.name,
-            startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+            tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
             fromCountryId: data.fromCountryId,
             fromCountryName: data.fromCountryName,
             toCountryId: data.toCountryId,
@@ -179,8 +179,8 @@ export default function ViewTripsScreen() {
       // Find all children for this parent
       const children = childTrips
         .filter(child => child.parentTripId === parentTrip.id)
-        // Sort children by startDate descending (newest first)
-        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+        // Sort children by tripDate descending (newest first)
+        .sort((a, b) => new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime());
 
       return {
         trip: parentTrip,
@@ -241,7 +241,7 @@ export default function ViewTripsScreen() {
       </View>
       <View style={styles.childTripCard}>
         <Text style={styles.childTripName}>{child.fromCountryName} → {child.toCountryName}</Text>
-        <Text style={styles.childTripDate}>{formatDate(child.startDate)}</Text>
+        <Text style={styles.childTripDate}>{formatDate(child.tripDate)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -265,7 +265,7 @@ export default function ViewTripsScreen() {
       </View>
       <View style={styles.childTripCard}>
         <Text style={styles.childTripName}>{trip.fromCountryName} → {trip.toCountryName}</Text>
-        <Text style={styles.childTripDate}>{formatDate(trip.startDate)}</Text>
+        <Text style={styles.childTripDate}>{formatDate(trip.tripDate)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -296,7 +296,7 @@ export default function ViewTripsScreen() {
           </View>
           <View style={styles.tripCard}>
             <Text style={styles.tripName}>{item.trip.name}</Text>
-            <Text style={styles.tripDate}>{formatParentDate(item.trip.startDate)}</Text>
+            <Text style={styles.tripDate}>{formatParentDate(item.trip.tripDate)}</Text>
           </View>
         </TouchableOpacity>
 

@@ -34,7 +34,7 @@ export interface Trip {
   userId: string;
   tripType: TripType;
   name?: string; // Only set on PARENT trip
-  startDate: string; // ISO date string
+  tripDate: string; // ISO date string
   fromCountryId: string;
   fromCountryName: string;
   toCountryId: string;
@@ -44,12 +44,14 @@ export interface Trip {
 }
 
 export interface CreateTripRequest {
-  name: string;
-  startDate: string; // ISO date string
+  name?: string; // Optional for CHILD trips
+  tripDate: string; // ISO date string
   fromCountryId: string;
   toCountryId: string;
   isRoundTrip: boolean;
   endDate?: string; // ISO date string, required if isRoundTrip is true
+  tripType?: 'PARENT' | 'CHILD'; // Optional, defaults to PARENT
+  parentTripId?: string; // Required if tripType is CHILD
 }
 
 export interface CreateTripResponse {

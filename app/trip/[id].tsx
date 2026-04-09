@@ -75,7 +75,7 @@ export default function TripDetailsScreen() {
         if (tripDoc.exists()) {
           const tripData = tripDoc.data();
           console.log('Loaded trip data:', tripData);
-          console.log('Start date type:', typeof tripData.startDate, tripData.startDate);
+          console.log('Trip date type:', typeof tripData.tripDate, tripData.tripDate);
           
           setTripName(tripData.name || '');
           setTripType(tripData.tripType || 'PARENT');
@@ -108,7 +108,7 @@ export default function TripDetailsScreen() {
                 userId: data.userId,
                 tripType: data.tripType,
                 name: data.name,
-                startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+                tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
                 fromCountryId: data.fromCountryId,
                 fromCountryName: data.fromCountryName,
                 toCountryId: data.toCountryId,
@@ -118,30 +118,32 @@ export default function TripDetailsScreen() {
               } as Trip);
             });
             setChildTrips(fetchedChildTrips);
+            // Auto-expand if 3 or fewer related trips
+            setIsChildTripsExpanded(fetchedChildTrips.length <= 3);
           }
           
           // Handle Firestore Timestamp or ISO string
-          let startDateValue: Date;
-          if (tripData.startDate?.toDate) {
+          let tripDateValue: Date;
+          if (tripData.tripDate?.toDate) {
             // Firestore Timestamp
-            startDateValue = tripData.startDate.toDate();
-          } else if (typeof tripData.startDate === 'string') {
+            tripDateValue = tripData.tripDate.toDate();
+          } else if (typeof tripData.tripDate === 'string') {
             // ISO string
-            startDateValue = new Date(tripData.startDate);
+            tripDateValue = new Date(tripData.tripDate);
           } else {
             // Fallback to current date
-            console.warn('Invalid startDate format, using current date');
-            startDateValue = new Date();
+            console.warn('Invalid tripDate format, using current date');
+            tripDateValue = new Date();
           }
           
-          console.log('Converted start date:', startDateValue);
+          console.log('Converted trip date:', tripDateValue);
           
-          if (isNaN(startDateValue.getTime())) {
+          if (isNaN(tripDateValue.getTime())) {
             console.error('Invalid date after conversion');
-            startDateValue = new Date();
+            tripDateValue = new Date();
           }
           
-          setStartDate(startDateValue);
+          setStartDate(tripDateValue);
           setFromCountryId(tripData.fromCountryId || '');
           setToCountryId(tripData.toCountryId || '');
           
@@ -213,7 +215,7 @@ export default function TripDetailsScreen() {
     try {
       const tripRef = doc(db, 'trips', id);
       const updateData: any = {
-        startDate: startDate.toISOString(),
+        tripDate: startDate.toISOString(),
         fromCountryId,
         toCountryId,
         fromCountryName: countries.find(c => c.id === fromCountryId)?.name || '',
@@ -227,7 +229,12 @@ export default function TripDetailsScreen() {
 
       await updateDoc(tripRef, updateData);
       
-      router.back();
+      // Navigate to parent trip if this is a child trip, otherwise to timeline
+      if (isChildTrip && parentTripId) {
+        router.push(`/trip/${parentTripId}`);
+      } else {
+        router.push('/view-trips');
+      }
     } catch (error) {
       console.error('Error updating trip:', error);
     } finally {
@@ -421,7 +428,7 @@ export default function TripDetailsScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.childTripsTitle}>
-                    There {childTrips.length === 1 ? 'is' : 'are'} {childTrips.length} related trip{childTrips.length !== 1 ? 's' : ''}, click to view
+                    {childTrips.length} related trip{childTrips.length !== 1 ? 's' : ''}
                   </Text>
                   <Ionicons 
                     name={isChildTripsExpanded ? "chevron-up" : "chevron-down"} 
@@ -452,7 +459,7 @@ export default function TripDetailsScreen() {
                     >
                       <View style={styles.childTripInfo}>
                         <Text style={styles.childTripDate}>
-                          {formatDate(new Date(childTrip.startDate))}
+                          {formatDate(new Date(childTrip.tripDate))}
                         </Text>
                         <Text style={styles.childTripRoute}>
                           {childTrip.fromCountryName} → {childTrip.toCountryName}
@@ -471,7 +478,7 @@ export default function TripDetailsScreen() {
             <View style={styles.childTripsCard}>
               <View style={styles.childTripsHeaderRow}>
                 <Text style={styles.childTripsTitle}>
-                  No related trips yet
+                  No related trips
                 </Text>
                 <TouchableOpacity
                   style={styles.addTripButton}

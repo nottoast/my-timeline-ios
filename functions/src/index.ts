@@ -99,7 +99,7 @@ export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>
 /**
  * HTTP Cloud Function (v2) to create a trip
  * POST /createTrip
- * Body: { name: string, startDate: string, isRoundTrip: boolean, endDate?: string }
+ * Body: { name: string, tripDate: string, isRoundTrip: boolean, endDate?: string }
  */
 export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>(
   { 
@@ -118,13 +118,22 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         };
       }
 
-      const { name, startDate, fromCountryId, toCountryId, isRoundTrip, endDate } = data;
+      const { name, tripDate, fromCountryId, toCountryId, isRoundTrip, endDate, tripType, parentTripId } = data;
 
-      // Validate input
-      if (!name || !startDate) {
+      // Validate input - name is only required for PARENT trips
+      const isChildTrip = tripType === 'CHILD' && parentTripId;
+      
+      if (!isChildTrip && !name) {
         return {
           success: false,
-          message: 'Trip name and start date are required',
+          message: 'Trip name is required',
+        };
+      }
+
+      if (!tripDate) {
+        return {
+          success: false,
+          message: 'Trip date is required',
         };
       }
 
@@ -149,20 +158,77 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
       const fromCountryName = (fromCountryDoc.data() as any).name;
       const toCountryName = (toCountryDoc.data() as any).name;
 
+      const userId = request.auth.uid;
+      const now = admin.firestore.Timestamp.now();
+
+      // Convert ISO date strings to Timestamps with time set to 00:00:00
+      const tripDateObj = new Date(tripDate);
+      tripDateObj.setHours(0, 0, 0, 0);
+      const tripDateTimestamp = admin.firestore.Timestamp.fromDate(tripDateObj);
+
+      // Handle creating a CHILD trip for an existing PARENT
+      if (isChildTrip) {
+        // Verify the parent trip exists and belongs to this user
+        const parentTripDoc = await db.collection('trips').doc(parentTripId).get();
+        if (!parentTripDoc.exists) {
+          return {
+            success: false,
+            message: 'Parent trip not found',
+          };
+        }
+
+        const parentTripData = parentTripDoc.data();
+        if (parentTripData?.userId !== userId) {
+          return {
+            success: false,
+            message: 'Unauthorized to add trip to this parent',
+          };
+        }
+
+        // Create the CHILD trip
+        const childTripRef = db.collection('trips').doc();
+        const childTripData = {
+          id: childTripRef.id,
+          userId,
+          tripType: 'CHILD',
+          tripDate: tripDateTimestamp,
+          fromCountryId,
+          fromCountryName,
+          toCountryId,
+          toCountryName,
+          parentTripId,
+          createdAt: now,
+        };
+
+        await childTripRef.set(childTripData);
+
+        const childTrip: Trip = {
+          id: childTripRef.id,
+          userId,
+          tripType: 'CHILD',
+          tripDate: tripDateTimestamp.toDate().toISOString(),
+          fromCountryId,
+          fromCountryName,
+          toCountryId,
+          toCountryName,
+          parentTripId,
+          createdAt: now.toDate().toISOString(),
+        };
+
+        return {
+          success: true,
+          trip: childTrip,
+          message: 'Trip added successfully',
+        };
+      }
+
+      // Handle round trip validation for PARENT trips
       if (isRoundTrip && !endDate) {
         return {
           success: false,
           message: 'End date is required for round trips',
         };
       }
-
-      const userId = request.auth.uid;
-      const now = admin.firestore.Timestamp.now();
-
-      // Convert ISO date strings to Timestamps with time set to 00:00:00
-      const startDateObj = new Date(startDate);
-      startDateObj.setHours(0, 0, 0, 0);
-      const startDateTimestamp = admin.firestore.Timestamp.fromDate(startDateObj);
       
       let endDateTimestamp = null;
       if (endDate) {
@@ -178,7 +244,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         userId,
         tripType: 'PARENT',
         name,
-        startDate: startDateTimestamp,
+        tripDate: tripDateTimestamp,
         fromCountryId,
         fromCountryName,
         toCountryId,
@@ -194,7 +260,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         userId,
         tripType: 'PARENT',
         name,
-        startDate: startDateTimestamp.toDate().toISOString(),
+        tripDate: tripDateTimestamp.toDate().toISOString(),
         fromCountryId,
         fromCountryName,
         toCountryId,
@@ -211,7 +277,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           id: childTripRef.id,
           userId,
           tripType: 'CHILD',
-          startDate: endDateTimestamp,
+          tripDate: endDateTimestamp,
           fromCountryId: toCountryId, // Reversed
           fromCountryName: toCountryName, // Reversed
           toCountryId: fromCountryId,  // Reversed
@@ -226,7 +292,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           id: childTripRef.id,
           userId,
           tripType: 'CHILD',
-          startDate: endDateTimestamp.toDate().toISOString(),
+          tripDate: endDateTimestamp.toDate().toISOString(),
           fromCountryId: toCountryId, // Reversed
           fromCountryName: toCountryName, // Reversed
           toCountryId: fromCountryId,  // Reversed
