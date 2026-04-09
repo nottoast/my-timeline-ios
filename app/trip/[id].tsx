@@ -117,6 +117,8 @@ export default function TripDetailsScreen() {
                 parentTripId: data.parentTripId,
               } as Trip);
             });
+            // Sort child trips by tripDate descending (newest first)
+            fetchedChildTrips.sort((a, b) => new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime());
             setChildTrips(fetchedChildTrips);
             // Auto-expand if 3 or fewer related trips
             setIsChildTripsExpanded(fetchedChildTrips.length <= 3);
