@@ -414,20 +414,29 @@ export default function TripDetailsScreen() {
           {/* Child Trips Card - Only show for PARENT trips */}
           {tripType === 'PARENT' && childTrips.length > 0 && (
             <View style={styles.childTripsCard}>
-              <TouchableOpacity
-                style={styles.childTripsHeader}
-                onPress={() => setIsChildTripsExpanded(!isChildTripsExpanded)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.childTripsTitle}>
-                  There {childTrips.length === 1 ? 'is' : 'are'} {childTrips.length} related trip{childTrips.length !== 1 ? 's' : ''}, click to view
-                </Text>
-                <Ionicons 
-                  name={isChildTripsExpanded ? "chevron-up" : "chevron-down"} 
-                  size={20} 
-                  color="#fff" 
-                />
-              </TouchableOpacity>
+              <View style={styles.childTripsHeaderRow}>
+                <TouchableOpacity
+                  style={styles.childTripsHeaderButton}
+                  onPress={() => setIsChildTripsExpanded(!isChildTripsExpanded)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.childTripsTitle}>
+                    There {childTrips.length === 1 ? 'is' : 'are'} {childTrips.length} related trip{childTrips.length !== 1 ? 's' : ''}, click to view
+                  </Text>
+                  <Ionicons 
+                    name={isChildTripsExpanded ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color="#fff" 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.addTripButton}
+                  onPress={() => router.push(`/add-trip?parentTripId=${id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={20} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
               
               {isChildTripsExpanded && (
                 <View style={styles.childTripsList}>
@@ -454,6 +463,24 @@ export default function TripDetailsScreen() {
                   ))}
                 </View>
               )}
+            </View>
+          )}
+
+          {/* Add First Trip Card - Show for PARENT trips with no children */}
+          {tripType === 'PARENT' && childTrips.length === 0 && (
+            <View style={styles.childTripsCard}>
+              <View style={styles.childTripsHeaderRow}>
+                <Text style={styles.childTripsTitle}>
+                  No related trips yet
+                </Text>
+                <TouchableOpacity
+                  style={styles.addTripButton}
+                  onPress={() => router.push(`/add-trip?parentTripId=${id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={20} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -646,6 +673,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3a3a3a',
     overflow: 'hidden',
+  },
+  childTripsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 12,
+  },
+  childTripsHeaderButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 8,
+  },
+  addTripButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   childTripsHeader: {
     flexDirection: 'row',

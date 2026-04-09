@@ -222,7 +222,7 @@ export default function ViewTripsScreen() {
     return country ? country.name : 'Unknown';
   };
 
-  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean) => (
+  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean, isOnlyChild: boolean, totalChildren: number) => (
     <TouchableOpacity
       key={child.id}
       style={styles.childTripContainer}
@@ -230,7 +230,13 @@ export default function ViewTripsScreen() {
       activeOpacity={0.7}
     >
       <View style={styles.timelineColumn}>
-        <View style={styles.childTimelineLine} />
+        <View style={[
+          styles.childTimelineLine,
+          totalChildren > 1 ? {
+            top: -50,
+            bottom: isLast ? 0 : -50
+          } : {}
+        ]} />
         <View style={styles.childTimelineCircle} />
       </View>
       <View style={styles.childTripCard}>
@@ -240,26 +246,35 @@ export default function ViewTripsScreen() {
     </TouchableOpacity>
   );
 
-  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean) => (
-    <View
+  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean, totalChildren: number) => (
+    <TouchableOpacity
       key={`${trip.id}-outbound`}
       style={styles.childTripContainer}
+      onPress={() => router.push(`/trip/${trip.id}`)}
+      activeOpacity={0.7}
     >
       <View style={styles.timelineColumn}>
-        <View style={styles.childTimelineLine} />
+        <View style={[
+          styles.childTimelineLine,
+          totalChildren > 1 ? {
+            top: 0,
+            bottom: -50
+          } : {}
+        ]} />
         <View style={styles.childTimelineCircle} />
       </View>
       <View style={styles.childTripCard}>
         <Text style={styles.childTripName}>{trip.fromCountryName} → {trip.toCountryName}</Text>
         <Text style={styles.childTripDate}>{formatDate(trip.startDate)}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderTimelineItem = (item: TimelineItem, index: number) => {
     const isLast = index === timelineItems.length - 1;
+    const isFirst = index === 0;
     const hasChildren = item.children.length > 0;
-    const hasChildrenOrOutbound = hasChildren || true; // Always true because of outbound trip
+    const totalChildren = 1 + item.children.length; // 1 outbound + actual children
 
     return (
       <View key={item.trip.id} style={styles.timelineItemContainer}>
@@ -270,7 +285,13 @@ export default function ViewTripsScreen() {
           activeOpacity={0.7}
         >
           <View style={styles.timelineColumn}>
-            <View style={styles.timelineLine} />
+            <View style={[
+              styles.timelineLine,
+              { 
+                top: isFirst ? 0 : -100,
+                bottom: isLast ? 0 : -100 
+              }
+            ]} />
             <View style={styles.timelineCircle} />
           </View>
           <View style={styles.tripCard}>
@@ -280,11 +301,17 @@ export default function ViewTripsScreen() {
         </TouchableOpacity>
 
         {/* Outbound Trip (duplicate of parent data) */}
-        {renderOutboundTrip(item.trip, isLast, hasChildren)}
+        {renderOutboundTrip(item.trip, isLast, hasChildren, totalChildren)}
 
         {/* Child Trips */}
         {item.children.map((child, childIndex) => 
-          renderChildTrip(child, childIndex === item.children.length - 1, isLast)
+          renderChildTrip(
+            child, 
+            childIndex === item.children.length - 1, 
+            isLast,
+            totalChildren === 1,
+            totalChildren
+          )
         )}
       </View>
     );
@@ -445,8 +472,8 @@ const styles = StyleSheet.create({
   },
   timelineLine: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: -100,
+    bottom: -100,
     width: 2,
     backgroundColor: '#007AFF',
   },

@@ -14,17 +14,20 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { createTrip } from '@/config/functions';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { Country } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
 
 export default function AddTripScreen() {
   const router = useRouter();
+  const { parentTripId } = useLocalSearchParams<{ parentTripId?: string }>();
   const [tripName, setTripName] = useState('');
+  const [parentTripName, setParentTripName] = useState('');
+  const [isChildTrip, setIsChildTrip] = useState(false);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
@@ -75,6 +78,27 @@ export default function AddTripScreen() {
     fetchCountries();
   }, []);
 
+  // Fetch parent trip if parentTripId is provided
+  useEffect(() => {
+    const fetchParentTrip = async () => {
+      if (parentTripId) {
+        try {
+          const parentTripRef = doc(db, 'trips', parentTripId);
+          const parentTripDoc = await getDoc(parentTripRef);
+          if (parentTripDoc.exists()) {
+            const parentData = parentTripDoc.data();
+            setParentTripName(parentData.name || '');
+            setIsChildTrip(true);
+          }
+        } catch (error) {
+          console.error('Error fetching parent trip:', error);
+        }
+      }
+    };
+
+    fetchParentTrip();
+  }, [parentTripId]);
+
   const handleStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowStartDatePicker(false);
@@ -111,9 +135,10 @@ export default function AddTripScreen() {
 
   const handleSave = async () => {
     console.log('handleSave called');
-    console.log('Trip data:', { tripName, fromCountryId, toCountryId, isRoundTrip, startDate, endDate });
+    console.log('Trip data:', { tripName, fromCountryId, toCountryId, isRoundTrip, startDate, endDate, isChildTrip, parentTripId });
     
-    if (!tripName.trim()) {
+    // Only validate trip name for parent trips
+    if (!isChildTrip && !tripName.trim()) {
       console.log('Validation failed: No trip name');
       Alert.alert('Error', 'Please enter a trip name');
       return;
@@ -137,14 +162,24 @@ export default function AddTripScreen() {
       return;
     }
 
-    const tripData = {
-      name: tripName,
+    const tripData: any = {
       startDate: startDate.toISOString(),
       fromCountryId,
       toCountryId,
       isRoundTrip,
       ...(isRoundTrip && { endDate: endDate.toISOString() }),
     };
+
+    // Add name only for parent trips
+    if (!isChildTrip) {
+      tripData.name = tripName;
+    }
+
+    // Add parent trip info for child trips
+    if (isChildTrip && parentTripId) {
+      tripData.tripType = 'CHILD';
+      tripData.parentTripId = parentTripId;
+    }
 
     console.log('Calling createTrip with:', tripData);
     setIsSaving(true);
@@ -155,7 +190,12 @@ export default function AddTripScreen() {
       
       if (response.success && response.trip) {
         Alert.alert('Success', 'Trip created successfully!');
-        router.push(`/trip/${response.trip.id}`);
+        if (isChildTrip && parentTripId) {
+          // Navigate back to parent trip instead of the newly created child trip
+          router.push(`/trip/${parentTripId}`);
+        } else {
+          router.push(`/trip/${response.trip.id}`);
+        }
       } else {
         Alert.alert('Error', response.message || 'Failed to create trip');
       }
@@ -195,17 +235,23 @@ export default function AddTripScreen() {
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Trip Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Paris Adventure"
-                placeholderTextColor="#666"
-                value={tripName}
-                onChangeText={setTripName}
-                onFocus={() => {
-                  setShowStartDatePicker(false);
-                  setShowEndDatePicker(false);
-                }}
-              />
+              {isChildTrip ? (
+                <View style={[styles.input, styles.readOnlyInput]}>
+                  <Text style={styles.readOnlyText}>{parentTripName}</Text>
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Paris Adventure"
+                  placeholderTextColor="#666"
+                  value={tripName}
+                  onChangeText={setTripName}
+                  onFocus={() => {
+                    setShowStartDatePicker(false);
+                    setShowEndDatePicker(false);
+                  }}
+                />
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -466,6 +512,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     borderWidth: 1,
     borderColor: '#3a3a3a',
+  },
+  readOnlyInput: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#2a2a2a',
+  },
+  readOnlyText: {
+    fontSize: 16,
+    color: '#888',
   },
   dateButton: {
     backgroundColor: '#2a2a2a',
