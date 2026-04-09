@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
@@ -17,10 +18,17 @@ import { Trip, Country } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
 
+interface TimelineItem {
+  trip: Trip;
+  children: Trip[];
+}
+
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [childTrips, setChildTrips] = useState<Trip[]>([]);
+  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [countries, setCountries] = useState<Map<string, Country>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,22 +72,30 @@ export default function ViewTripsScreen() {
 
     console.log('Setting up real-time listener for user:', user.uid);
     const tripsRef = collection(db, 'trips');
-    const q = query(
+    
+    // Query for parent trips
+    const parentQuery = query(
       tripsRef,
       where('userId', '==', user.uid),
       where('tripType', '==', 'PARENT')
     );
 
-    // Set up real-time listener
-    const unsubscribe = onSnapshot(
-      q,
+    // Query for child trips
+    const childQuery = query(
+      tripsRef,
+      where('userId', '==', user.uid),
+      where('tripType', '==', 'CHILD')
+    );
+
+    // Set up real-time listener for parent trips
+    const unsubscribeParent = onSnapshot(
+      parentQuery,
       (querySnapshot) => {
         const fetchedTrips: Trip[] = [];
 
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           
-          // Convert Firestore Timestamps to ISO strings
           fetchedTrips.push({
             id: doc.id,
             userId: data.userId,
@@ -95,18 +111,18 @@ export default function ViewTripsScreen() {
           } as Trip);
         });
 
-        // Sort by startDate descending (most recent first)
+        // Sort by startDate descending (newest first)
         fetchedTrips.sort((a, b) => {
           return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
         });
 
-        console.log('Real-time update: Total trips:', fetchedTrips.length);
+        console.log('Real-time update: Parent trips:', fetchedTrips.length);
         setTrips(fetchedTrips);
         setLoading(false);
         setRefreshing(false);
       },
       (error) => {
-        console.error('Error in real-time listener:', error);
+        console.error('Error in parent trips listener:', error);
         if (error instanceof Error) {
           setError(error.message);
         } else {
@@ -117,12 +133,63 @@ export default function ViewTripsScreen() {
       }
     );
 
-    // Cleanup listener on unmount or when user changes
+    // Set up real-time listener for child trips
+    const unsubscribeChild = onSnapshot(
+      childQuery,
+      (querySnapshot) => {
+        const fetchedChildTrips: Trip[] = [];
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          fetchedChildTrips.push({
+            id: doc.id,
+            userId: data.userId,
+            tripType: data.tripType,
+            name: data.name,
+            startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+            fromCountryId: data.fromCountryId,
+            fromCountryName: data.fromCountryName,
+            toCountryId: data.toCountryId,
+            toCountryName: data.toCountryName,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+            parentTripId: data.parentTripId,
+          } as Trip);
+        });
+
+        console.log('Real-time update: Child trips:', fetchedChildTrips.length);
+        setChildTrips(fetchedChildTrips);
+      },
+      (error) => {
+        console.error('Error in child trips listener:', error);
+      }
+    );
+
+    // Cleanup listeners on unmount or when user changes
     return () => {
-      console.log('Cleaning up real-time listener');
-      unsubscribe();
+      console.log('Cleaning up real-time listeners');
+      unsubscribeParent();
+      unsubscribeChild();
     };
   }, [user]);
+
+  // Organize trips into timeline items whenever trips or childTrips change
+  useEffect(() => {
+    const items: TimelineItem[] = trips.map(parentTrip => {
+      // Find all children for this parent
+      const children = childTrips
+        .filter(child => child.parentTripId === parentTrip.id)
+        // Sort children by startDate descending (newest first)
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
+      return {
+        trip: parentTrip,
+        children,
+      };
+    });
+
+    setTimelineItems(items);
+  }, [trips, childTrips]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -136,9 +203,17 @@ export default function ViewTripsScreen() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatParentDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
     });
   };
 
@@ -147,25 +222,73 @@ export default function ViewTripsScreen() {
     return country ? country.name : 'Unknown';
   };
 
-  const renderTripItem = ({ item }: { item: Trip }) => (
+  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean) => (
     <TouchableOpacity
-      style={styles.tripCard}
-      onPress={() => router.push(`/trip/${item.id}`)}
+      key={child.id}
+      style={styles.childTripContainer}
+      onPress={() => router.push(`/trip/${child.id}`)}
       activeOpacity={0.7}
     >
-      <View style={styles.tripHeader}>
-        <Text style={styles.tripName}>{item.name || 'Unnamed Trip'}</Text>
+      <View style={styles.timelineColumn}>
+        <View style={styles.childTimelineLine} />
+        <View style={styles.childTimelineCircle} />
       </View>
-      <View style={styles.tripDetails}>
-        <Text style={styles.tripDate}>📅 {formatDate(item.startDate)}</Text>
-      </View>
-      <View style={styles.tripCountries}>
-        <Text style={styles.tripCountryText}>
-          {item.fromCountryName} → {item.toCountryName}
-        </Text>
+      <View style={styles.childTripCard}>
+        <Text style={styles.childTripName}>{child.fromCountryName} → {child.toCountryName}</Text>
+        <Text style={styles.childTripDate}>{formatDate(child.startDate)}</Text>
       </View>
     </TouchableOpacity>
   );
+
+  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean) => (
+    <View
+      key={`${trip.id}-outbound`}
+      style={styles.childTripContainer}
+    >
+      <View style={styles.timelineColumn}>
+        <View style={styles.childTimelineLine} />
+        <View style={styles.childTimelineCircle} />
+      </View>
+      <View style={styles.childTripCard}>
+        <Text style={styles.childTripName}>{trip.fromCountryName} → {trip.toCountryName}</Text>
+        <Text style={styles.childTripDate}>{formatDate(trip.startDate)}</Text>
+      </View>
+    </View>
+  );
+
+  const renderTimelineItem = (item: TimelineItem, index: number) => {
+    const isLast = index === timelineItems.length - 1;
+    const hasChildren = item.children.length > 0;
+    const hasChildrenOrOutbound = hasChildren || true; // Always true because of outbound trip
+
+    return (
+      <View key={item.trip.id} style={styles.timelineItemContainer}>
+        {/* Parent Trip */}
+        <TouchableOpacity
+          style={styles.parentTripContainer}
+          onPress={() => router.push(`/trip/${item.trip.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.timelineColumn}>
+            <View style={styles.timelineLine} />
+            <View style={styles.timelineCircle} />
+          </View>
+          <View style={styles.tripCard}>
+            <Text style={styles.tripName}>{item.trip.name}</Text>
+            <Text style={styles.tripDate}>{formatParentDate(item.trip.startDate)}</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Outbound Trip (duplicate of parent data) */}
+        {renderOutboundTrip(item.trip, isLast, hasChildren)}
+
+        {/* Child Trips */}
+        {item.children.map((child, childIndex) => 
+          renderChildTrip(child, childIndex === item.children.length - 1, isLast)
+        )}
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -183,7 +306,7 @@ export default function ViewTripsScreen() {
     <SafeAreaView style={styles.container}>
       <CustomHeader title="Timeline" />
 
-      {trips.length === 0 ? (
+      {timelineItems.length === 0 ? (
         <View style={styles.emptyContainer}>
           {error ? (
             <>
@@ -206,11 +329,8 @@ export default function ViewTripsScreen() {
           )}
         </View>
       ) : (
-        <FlatList
-          data={trips}
-          renderItem={renderTripItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -218,7 +338,10 @@ export default function ViewTripsScreen() {
               tintColor="#fff"
             />
           }
-        />
+        >
+          {timelineItems.map((item, index) => renderTimelineItem(item, index))}
+          <View style={styles.bottomPadding} />
+        </ScrollView>
       )}
 
       {/* Floating Action Button */}
@@ -291,47 +414,114 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  listContainer: {
-    padding: 16,
-    paddingBottom: 100, // Extra padding for FAB
+  scrollContent: {
+    paddingVertical: 20,
+  },
+  bottomPadding: {
+    height: 100,
+  },
+  timelineItemContainer: {
+    marginBottom: 0,
+  },
+  parentTripContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  childTripContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingLeft: 60,
+    alignItems: 'center',
+  },
+  timelineColumn: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    alignSelf: 'stretch',
+  },
+  timelineLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: '#007AFF',
+  },
+  childTimelineLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: '#666',
+  },
+  timelineCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#007AFF',
+    borderWidth: 3,
+    borderColor: '#1a1a1a',
+    zIndex: 1,
+  },
+  childTimelineCircle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#666',
+    borderWidth: 2,
+    borderColor: '#1a1a1a',
+    zIndex: 1,
   },
   tripCard: {
+    flex: 1,
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginLeft: 16,
     borderWidth: 1,
     borderColor: '#333',
-  },
-  tripHeader: {
-    marginBottom: 12,
-  },
-  tripName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  tripDetails: {
+    minHeight: 60,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+  },
+  tripName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    flex: 1,
   },
   tripDate: {
     fontSize: 14,
     color: '#999',
+    marginLeft: 12,
   },
-  tripCountries: {
-    marginTop: 4,
+  childTripCard: {
+    flex: 1,
+    backgroundColor: '#242424',
+    borderRadius: 10,
+    padding: 12,
+    marginLeft: 16,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    minHeight: 50,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  tripCountryText: {
+  childTripName: {
     fontSize: 14,
-    color: '#4CAF50',
     fontWeight: '500',
+    color: '#ccc',
+    flex: 1,
   },
-  tripType: {
-    fontSize: 14,
-    color: '#999',
+  childTripDate: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 12,
   },
   fab: {
     position: 'absolute',
