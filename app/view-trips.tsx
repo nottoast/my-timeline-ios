@@ -16,6 +16,7 @@ import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, Country } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
+import EUPill from '@/components/EUPill';
 import { Ionicons } from '@expo/vector-icons';
 
 interface TimelineItem {
@@ -108,6 +109,7 @@ export default function ViewTripsScreen() {
             toCountryName: data.toCountryName,
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
             parentTripId: data.parentTripId,
+            tripVisaStatus: data.tripVisaStatus,
           } as Trip);
         });
 
@@ -154,6 +156,7 @@ export default function ViewTripsScreen() {
             toCountryName: data.toCountryName,
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
             parentTripId: data.parentTripId,
+            tripVisaStatus: data.tripVisaStatus,
           } as Trip);
         });
 
@@ -240,7 +243,17 @@ export default function ViewTripsScreen() {
         <View style={styles.childTimelineCircle} />
       </View>
       <View style={styles.childTripCard}>
-        <Text style={styles.childTripName}>{child.fromCountryName} → {child.toCountryName}</Text>
+        <View style={styles.tripRouteContainer}>
+          <Text style={styles.routeCountry}>{child.fromCountryName}</Text>
+          {child.tripVisaStatus === 'LEFT_SCHENGEN' && (
+            <EUPill prefix="←" style={styles.pillInline} />
+          )}
+          <Text style={styles.routeArrow}> → </Text>
+          <Text style={styles.routeCountry}>{child.toCountryName}</Text>
+          {child.tripVisaStatus === 'ENTERED_SCHENGEN' && (
+            <EUPill prefix="→" style={styles.pillInline} />
+          )}
+        </View>
         <Text style={styles.childTripDate}>{formatDate(child.tripDate)}</Text>
       </View>
     </TouchableOpacity>
@@ -264,7 +277,17 @@ export default function ViewTripsScreen() {
         <View style={styles.childTimelineCircle} />
       </View>
       <View style={styles.childTripCard}>
-        <Text style={styles.childTripName}>{trip.fromCountryName} → {trip.toCountryName}</Text>
+        <View style={styles.tripRouteContainer}>
+          <Text style={styles.routeCountry}>{trip.fromCountryName}</Text>
+          {trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
+            <EUPill prefix="←" style={styles.pillInline} />
+          )}
+          <Text style={styles.routeArrow}> → </Text>
+          <Text style={styles.routeCountry}>{trip.toCountryName}</Text>
+          {trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
+            <EUPill prefix="→" style={styles.pillInline} />
+          )}
+        </View>
         <Text style={styles.childTripDate}>{formatDate(trip.tripDate)}</Text>
       </View>
     </TouchableOpacity>
@@ -549,6 +572,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#ccc',
     flex: 1,
+  },
+  tripRouteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  routeCountry: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#ccc',
+  },
+  routeArrow: {
+    fontSize: 14,
+    color: '#777',
+  },
+  pillInline: {
+    marginHorizontal: 3,
   },
   childTripDate: {
     fontSize: 12,
