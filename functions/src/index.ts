@@ -185,7 +185,15 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           };
         }
 
-        // Create the CHILD trip
+        // Validate end date for round trips
+        if (isRoundTrip && !endDate) {
+          return {
+            success: false,
+            message: 'End date is required for round trips',
+          };
+        }
+
+        // Create the CHILD trip (outbound)
         const childTripRef = db.collection('trips').doc();
         const childTripData = {
           id: childTripRef.id,
@@ -215,9 +223,47 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           createdAt: now.toDate().toISOString(),
         };
 
+        // If round trip, create the return trip
+        let returnTrip: Trip | undefined;
+        if (isRoundTrip && endDate) {
+          const endDateObj = new Date(endDate);
+          endDateObj.setHours(0, 0, 0, 0);
+          const endDateTimestamp = admin.firestore.Timestamp.fromDate(endDateObj);
+
+          const returnTripRef = db.collection('trips').doc();
+          const returnTripData = {
+            id: returnTripRef.id,
+            userId,
+            tripType: 'CHILD',
+            tripDate: endDateTimestamp,
+            fromCountryId: toCountryId, // Reversed
+            fromCountryName: toCountryName, // Reversed
+            toCountryId: fromCountryId,  // Reversed
+            toCountryName: fromCountryName,  // Reversed
+            parentTripId,
+            createdAt: now,
+          };
+
+          await returnTripRef.set(returnTripData);
+
+          returnTrip = {
+            id: returnTripRef.id,
+            userId,
+            tripType: 'CHILD',
+            tripDate: endDateTimestamp.toDate().toISOString(),
+            fromCountryId: toCountryId, // Reversed
+            fromCountryName: toCountryName, // Reversed
+            toCountryId: fromCountryId,  // Reversed
+            toCountryName: fromCountryName,  // Reversed
+            parentTripId,
+            createdAt: now.toDate().toISOString(),
+          };
+        }
+
         return {
           success: true,
           trip: childTrip,
+          returnTrip,
           message: 'Trip added successfully',
         };
       }

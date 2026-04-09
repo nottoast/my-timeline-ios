@@ -108,9 +108,11 @@ export default function AddTripScreen() {
     }
     if (selectedDate) {
       setStartDate(selectedDate);
-      // If start date is now after end date, update end date to match start date
-      if (isRoundTrip && selectedDate > endDate) {
-        setEndDate(selectedDate);
+      // If round trip, update end date to one week after start date
+      if (isRoundTrip) {
+        const oneWeekLater = new Date(selectedDate);
+        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+        setEndDate(oneWeekLater);
       }
     }
   };
@@ -131,6 +133,12 @@ export default function AddTripScreen() {
     setIsRoundTrip(value);
     setShowStartDatePicker(false);
     setShowEndDatePicker(false);
+    // Set end date to one week after start date when enabling round trip
+    if (value) {
+      const oneWeekLater = new Date(startDate);
+      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+      setEndDate(oneWeekLater);
+    }
   };
 
   const handleSave = async () => {
@@ -190,13 +198,8 @@ export default function AddTripScreen() {
       
       if (response.success && response.trip) {
         Alert.alert('Success', 'Trip created successfully!');
-        if (isChildTrip && parentTripId) {
-          // Navigate to parent trip after creating child trip
-          router.push(`/trip/${parentTripId}`);
-        } else {
-          // Navigate to timeline after creating parent trip
-          router.push('/view-trips');
-        }
+        // Navigate to timeline after creating any trip
+        router.push('/view-trips');
       } else {
         Alert.alert('Error', response.message || 'Failed to create trip');
       }
@@ -284,31 +287,36 @@ export default function AddTripScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Start Date</Text>
               {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={startDate.toISOString().split('T')[0]}
-                  onChange={(e) => {
-                    const selectedDate = new Date(e.target.value);
-                    if (!isNaN(selectedDate.getTime())) {
-                      setStartDate(selectedDate);
-                      // If start date is now after end date, update end date to match start date
-                      if (isRoundTrip && selectedDate > endDate) {
-                        setEndDate(selectedDate);
+                <View style={{ width: '100%', maxWidth: '100%' }}>
+                  <input
+                    type="date"
+                    value={startDate.toISOString().split('T')[0]}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      if (!isNaN(selectedDate.getTime())) {
+                        setStartDate(selectedDate);
+                        // If round trip and start date changes, update end date to one week later
+                        if (isRoundTrip) {
+                          const oneWeekLater = new Date(selectedDate);
+                          oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                          setEndDate(oneWeekLater);
+                        }
                       }
-                    }
-                  }}
-                  style={{
-                    backgroundColor: '#2a2a2a',
-                    borderRadius: 12,
-                    padding: 16,
-                    fontSize: 16,
-                    color: '#ffffff',
-                    border: '1px solid #3a3a3a',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    colorScheme: 'dark',
-                  }}
-                />
+                    }}
+                    style={{
+                      backgroundColor: '#2a2a2a',
+                      borderRadius: 12,
+                      padding: 16,
+                      fontSize: 16,
+                      color: '#ffffff',
+                      border: '1px solid #3a3a3a',
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      colorScheme: 'dark',
+                    }}
+                  />
+                </View>
               ) : (
                 <TouchableOpacity
                   style={styles.dateButton}
@@ -349,28 +357,31 @@ export default function AddTripScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
                 {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    value={endDate.toISOString().split('T')[0]}
-                    min={startDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const selectedDate = new Date(e.target.value);
-                      if (!isNaN(selectedDate.getTime())) {
-                        setEndDate(selectedDate);
-                      }
-                    }}
-                    style={{
-                      backgroundColor: '#2a2a2a',
-                      borderRadius: 12,
-                      padding: 16,
-                      fontSize: 16,
-                      color: '#ffffff',
-                      border: '1px solid #3a3a3a',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      colorScheme: 'dark',
-                    }}
-                  />
+                  <View style={{ width: '100%', maxWidth: '100%' }}>
+                    <input
+                      type="date"
+                      value={endDate.toISOString().split('T')[0]}
+                      min={startDate.toISOString().split('T')[0]}
+                      onChange={(e) => {
+                        const selectedDate = new Date(e.target.value);
+                        if (!isNaN(selectedDate.getTime())) {
+                          setEndDate(selectedDate);
+                        }
+                      }}
+                      style={{
+                        backgroundColor: '#2a2a2a',
+                        borderRadius: 12,
+                        padding: 16,
+                        fontSize: 16,
+                        color: '#ffffff',
+                        border: '1px solid #3a3a3a',
+                        width: '100%',
+                        maxWidth: '100%',
+                        boxSizing: 'border-box',
+                        colorScheme: 'dark',
+                      }}
+                    />
+                  </View>
                 ) : (
                   <TouchableOpacity
                     style={styles.dateButton}

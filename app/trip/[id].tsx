@@ -117,8 +117,8 @@ export default function TripDetailsScreen() {
                 parentTripId: data.parentTripId,
               } as Trip);
             });
-            // Sort child trips by tripDate descending (newest first)
-            fetchedChildTrips.sort((a, b) => new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime());
+            // Sort child trips by tripDate ascending (oldest first)
+            fetchedChildTrips.sort((a, b) => new Date(a.tripDate).getTime() - new Date(b.tripDate).getTime());
             setChildTrips(fetchedChildTrips);
             // Auto-expand if 3 or fewer related trips
             setIsChildTripsExpanded(fetchedChildTrips.length <= 3);
@@ -173,7 +173,10 @@ export default function TripDetailsScreen() {
     if (selectedDate) {
       setStartDate(selectedDate);
       if (isRoundTrip && selectedDate > endDate) {
-        setEndDate(selectedDate);
+        // Update end date to one week after the new start date
+        const oneWeekLater = new Date(selectedDate);
+        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+        setEndDate(oneWeekLater);
       }
     }
   };
@@ -354,30 +357,35 @@ export default function TripDetailsScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Date</Text>
               {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={startDate.toISOString().split('T')[0]}
-                  onChange={(e) => {
-                    const selectedDate = new Date(e.target.value);
-                    if (!isNaN(selectedDate.getTime())) {
-                      setStartDate(selectedDate);
-                      if (isRoundTrip && selectedDate > endDate) {
-                        setEndDate(selectedDate);
+                <View style={{ width: '100%', maxWidth: '100%' }}>
+                  <input
+                    type="date"
+                    value={startDate.toISOString().split('T')[0]}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      if (!isNaN(selectedDate.getTime())) {
+                        setStartDate(selectedDate);
+                        if (isRoundTrip) {
+                          const oneWeekLater = new Date(selectedDate);
+                          oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                          setEndDate(oneWeekLater);
+                        }
                       }
-                    }
-                  }}
-                  style={{
-                    backgroundColor: '#2a2a2a',
-                    borderRadius: 12,
-                    padding: 16,
-                    fontSize: 16,
-                    color: '#ffffff',
-                    border: '1px solid #3a3a3a',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    colorScheme: 'dark',
-                  }}
-                />
+                    }}
+                    style={{
+                      backgroundColor: '#2a2a2a',
+                      borderRadius: 12,
+                      padding: 16,
+                      fontSize: 16,
+                      color: '#ffffff',
+                      border: '1px solid #3a3a3a',
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      colorScheme: 'dark',
+                    }}
+                  />
+                </View>
               ) : (
                 <TouchableOpacity
                   style={styles.dateButton}

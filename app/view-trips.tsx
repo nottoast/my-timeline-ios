@@ -179,8 +179,8 @@ export default function ViewTripsScreen() {
       // Find all children for this parent
       const children = childTrips
         .filter(child => child.parentTripId === parentTrip.id)
-        // Sort children by tripDate descending (newest first)
-        .sort((a, b) => new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime());
+        // Sort children by tripDate ascending (oldest first)
+        .sort((a, b) => new Date(a.tripDate).getTime() - new Date(b.tripDate).getTime());
 
       return {
         trip: parentTrip,
@@ -275,6 +275,11 @@ export default function ViewTripsScreen() {
     const isFirst = index === 0;
     const hasChildren = item.children.length > 0;
     const totalChildren = 1 + item.children.length; // 1 outbound + actual children
+    
+    // Calculate the height needed to extend the line through all child trips
+    // Each child trip is approximately 90px (50px minHeight card + 16px container padding + 24px buffer)
+    const childTripHeight = 90;
+    const lineExtension = isLast ? 0 : totalChildren * childTripHeight;
 
     return (
       <View key={item.trip.id} style={styles.timelineItemContainer}>
@@ -288,8 +293,8 @@ export default function ViewTripsScreen() {
             <View style={[
               styles.timelineLine,
               { 
-                top: isFirst ? 0 : -100,
-                bottom: isLast ? 0 : -100 
+                top: 0,
+                bottom: -lineExtension
               }
             ]} />
             <View style={styles.timelineCircle} />
