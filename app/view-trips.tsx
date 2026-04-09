@@ -10,18 +10,43 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Trip } from '@/types';
+import { Trip, Country } from '@/types';
 
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [countries, setCountries] = useState<Map<string, Country>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch countries once on mount
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const countriesRef = collection(db, 'countries');
+        const querySnapshot = await getDocs(countriesRef);
+        const countriesMap = new Map<string, Country>();
+        
+        querySnapshot.forEach((doc) => {
+          countriesMap.set(doc.id, {
+            id: doc.id,
+            ...doc.data(),
+          } as Country);
+        });
+        
+        setCountries(countriesMap);
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+      }
+    };
+
+    fetchCountries();
+  }, []);
 
   const fetchTrips = async () => {
     if (!user) {
@@ -47,9 +72,19 @@ export default function ViewTripsScreen() {
 
       querySnapshot.forEach((doc) => {
         console.log('Found trip:', doc.id, doc.data());
+        const data = doc.data();
+        
+        // Convert Firestore Timestamps to ISO strings
         fetchedTrips.push({
           id: doc.id,
-          ...doc.data(),
+          userId: data.userId,
+          tripType: data.tripType,
+          name: data.name,
+          startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+          fromCountryId: data.fromCountryId,
+          toCountryId: data.toCountryId,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          parentTripId: data.parentTripId,
         } as Trip);
       });
 
@@ -93,15 +128,22 @@ export default function ViewTripsScreen() {
     });
   };
 
+  const getCountryName = (countryId: string) => {
+    const country = countries.get(countryId);
+    return country ? country.name : 'Unknown';
+  };
+
   const renderTripItem = ({ item }: { item: Trip }) => (
     <View style={styles.tripCard}>
       <View style={styles.tripHeader}>
         <Text style={styles.tripName}>{item.name || 'Unnamed Trip'}</Text>
       </View>
       <View style={styles.tripDetails}>
-        <Text style={styles.tripDate}>Start: {formatDate(item.startDate)}</Text>
-        <Text style={styles.tripType}>
-          {item.tripType === 'PARENT' ? '🌍 Trip' : '↩️ Return'}
+        <Text style={styles.tripDate}>📅 {formatDate(item.startDate)}</Text>
+      </View>
+      <View style={styles.tripCountries}>
+        <Text style={styles.tripCountryText}>
+          {getCountryName(item.fromCountryId)} → {getCountryName(item.toCountryId)}
         </Text>
       </View>
     </View>
@@ -314,10 +356,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   tripDate: {
     fontSize: 14,
     color: '#999',
+  },
+  tripCountries: {
+    marginTop: 4,
+  },
+  tripCountryText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
   },
   tripType: {
     fontSize: 14,

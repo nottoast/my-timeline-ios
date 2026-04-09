@@ -6,6 +6,8 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  registeredAt: string; // ISO timestamp
+  lastLoggedInAt: string; // ISO timestamp
 }
 
 export interface CreateUserRequest {
@@ -21,12 +23,20 @@ export interface CreateUserResponse {
 
 export type TripType = 'PARENT' | 'CHILD';
 
+export interface Country {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export interface Trip {
   id: string;
   userId: string;
   tripType: TripType;
   name?: string; // Only set on PARENT trip
   startDate: string; // ISO date string
+  fromCountryId: string;
+  toCountryId: string;
   parentTripId?: string; // Set on CHILD trip, references the PARENT trip
   createdAt: string;
 }
@@ -34,6 +44,8 @@ export interface Trip {
 export interface CreateTripRequest {
   name: string;
   startDate: string; // ISO date string
+  fromCountryId: string;
+  toCountryId: string;
   isRoundTrip: boolean;
   endDate?: string; // ISO date string, required if isRoundTrip is true
 }

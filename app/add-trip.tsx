@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { createTrip } from '@/config/functions';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { Country } from '@/types';
 
 export default function AddTripScreen() {
   const router = useRouter();
@@ -25,6 +30,42 @@ export default function AddTripScreen() {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Country selection state
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [fromCountryId, setFromCountryId] = useState('');
+  const [toCountryId, setToCountryId] = useState('');
+  const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
+  const [showToCountryPicker, setShowToCountryPicker] = useState(false);
+  const [loadingCountries, setLoadingCountries] = useState(true);
+
+  // Fetch countries from Firestore
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const countriesRef = collection(db, 'countries');
+        const q = query(countriesRef, orderBy('name', 'asc'));
+        const querySnapshot = await getDocs(q);
+        
+        const fetchedCountries: Country[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedCountries.push({
+            id: doc.id,
+            ...doc.data(),
+          } as Country);
+        });
+        
+        setCountries(fetchedCountries);
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+        Alert.alert('Error', 'Failed to load countries');
+      } finally {
+        setLoadingCountries(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
 
   const handleStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -62,6 +103,16 @@ export default function AddTripScreen() {
       return;
     }
 
+    if (!fromCountryId) {
+      Alert.alert('Error', 'Please select a from country');
+      return;
+    }
+
+    if (!toCountryId) {
+      Alert.alert('Error', 'Please select a to country');
+      return;
+    }
+
     if (isRoundTrip && endDate <= startDate) {
       Alert.alert('Error', 'End date must be after start date');
       return;
@@ -70,6 +121,8 @@ export default function AddTripScreen() {
     const tripData = {
       name: tripName,
       startDate: startDate.toISOString(),
+      fromCountryId,
+      toCountryId,
       isRoundTrip,
       ...(isRoundTrip && { endDate: endDate.toISOString() }),
     };
@@ -91,6 +144,11 @@ export default function AddTripScreen() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const getCountryName = (countryId: string) => {
+    const country = countries.find(c => c.id === countryId);
+    return country ? country.name : 'Select Country';
   };
 
   const formatDate = (date: Date) => {
@@ -135,6 +193,32 @@ export default function AddTripScreen() {
                   setShowEndDatePicker(false);
                 }}
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>From Country</Text>
+              <TouchableOpacity
+                style={styles.countryButton}
+                onPress={() => setShowFromCountryPicker(true)}
+                disabled={loadingCountries}
+              >
+                <Text style={[styles.countryButtonText, !fromCountryId && styles.placeholderText]}>
+                  {loadingCountries ? 'Loading...' : getCountryName(fromCountryId)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>To Country</Text>
+              <TouchableOpacity
+                style={styles.countryButton}
+                onPress={() => setShowToCountryPicker(true)}
+                disabled={loadingCountries}
+              >
+                <Text style={[styles.countryButtonText, !toCountryId && styles.placeholderText]}>
+                  {loadingCountries ? 'Loading...' : getCountryName(toCountryId)}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.inputGroup}>
@@ -258,6 +342,74 @@ export default function AddTripScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* From Country Picker Modal */}
+      <Modal
+        visible={showFromCountryPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowFromCountryPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select From Country</Text>
+              <TouchableOpacity onPress={() => setShowFromCountryPicker(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={countries}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.countryItem}
+                  onPress={() => {
+                    setFromCountryId(item.id);
+                    setShowFromCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* To Country Picker Modal */}
+      <Modal
+        visible={showToCountryPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowToCountryPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select To Country</Text>
+              <TouchableOpacity onPress={() => setShowToCountryPicker(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={countries}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.countryItem}
+                  onPress={() => {
+                    setToCountryId(item.id);
+                    setShowToCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -354,5 +506,57 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  countryButton: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  countryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  placeholderText: {
+    color: '#666',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: '#999',
+  },
+  countryItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  countryItemText: {
+    fontSize: 16,
+    color: '#ffffff',
   },
 });
