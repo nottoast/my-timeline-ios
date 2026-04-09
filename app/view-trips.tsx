@@ -18,6 +18,7 @@ import { Trip, Country } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
 import EUPill from '@/components/EUPill';
 import { Ionicons } from '@expo/vector-icons';
+import { computeSchengenDaysRemaining } from '@/utils/schengen';
 
 interface TimelineItem {
   trip: Trip;
@@ -34,6 +35,8 @@ export default function ViewTripsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [schengenDaysRemaining, setSchengenDaysRemaining] = useState(90);
+  const [schengenIsInvalid, setSchengenIsInvalid] = useState(false);
 
   const fetchCountries = async () => {
     try {
@@ -194,6 +197,14 @@ export default function ViewTripsScreen() {
     setTimelineItems(items);
   }, [trips, childTrips]);
 
+  // Recompute Schengen days whenever trips change
+  useEffect(() => {
+    const allTrips = [...trips, ...childTrips];
+    const { daysRemaining, isInvalid } = computeSchengenDaysRemaining(allTrips);
+    setSchengenDaysRemaining(daysRemaining);
+    setSchengenIsInvalid(isInvalid);
+  }, [trips, childTrips]);
+
   const onRefresh = () => {
     setRefreshing(true);
     // With real-time listener, data updates automatically
@@ -348,7 +359,7 @@ export default function ViewTripsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <CustomHeader title="Timeline" />
+        <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Loading trips...</Text>
@@ -359,7 +370,7 @@ export default function ViewTripsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Timeline" />
+        <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
 
       {timelineItems.length === 0 ? (
         <View style={styles.emptyContainer}>

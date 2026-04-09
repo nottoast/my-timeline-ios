@@ -3,13 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import EUPill from '@/components/EUPill';
 
 interface CustomHeaderProps {
   title: string;
   showBackButton?: boolean;
+  schengenDaysRemaining?: number;
+  schengenIsInvalid?: boolean;
 }
 
-export default function CustomHeader({ title, showBackButton = false }: CustomHeaderProps) {
+export default function CustomHeader({ title, showBackButton = false, schengenDaysRemaining, schengenIsInvalid = false }: CustomHeaderProps) {
   const router = useRouter();
   const { user } = useAuth();
 
@@ -36,17 +39,26 @@ export default function CustomHeader({ title, showBackButton = false }: CustomHe
         <Text style={styles.title}>{title}</Text>
       </View>
       
-      <TouchableOpacity 
-        style={styles.profileButton}
-        onPress={handleProfilePress}
-        activeOpacity={0.7}
-      >
+      <View style={styles.rightSection}>
+        {schengenDaysRemaining !== undefined && (
+          <View style={[styles.schengenBadge, schengenIsInvalid && styles.schengenBadgeInvalid]}>
+            <Text style={styles.schengenDays}>{schengenDaysRemaining}</Text>
+            <EUPill prefix={schengenDaysRemaining} />
+          </View>
+        )}
+
+        <TouchableOpacity 
+          style={styles.profileButton}
+          onPress={handleProfilePress}
+          activeOpacity={0.7}
+        >
         <View style={styles.profilePicture}>
           <Text style={styles.profileInitial}>
             {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
           </Text>
         </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -75,6 +87,28 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  schengenBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#2c2c2c',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  schengenBadgeInvalid: {
+    backgroundColor: '#b91c1c',
+  },
+  schengenDays: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   profileButton: {
     padding: 4,
