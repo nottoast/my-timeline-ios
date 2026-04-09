@@ -14,6 +14,8 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, Country } from '@/types';
+import CustomHeader from '@/components/CustomHeader';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ViewTripsScreen() {
   const router = useRouter();
@@ -158,12 +160,7 @@ export default function ViewTripsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Trips</Text>
-        </View>
+        <CustomHeader title="Timeline" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Loading trips...</Text>
@@ -174,19 +171,7 @@ export default function ViewTripsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Trips</Text>
-      </View>
-
-      {user && (
-        <View style={styles.debugInfo}>
-          <Text style={styles.debugText}>User ID: {user.uid.substring(0, 12)}...</Text>
-          <Text style={styles.debugText}>Trips loaded: {trips.length}</Text>
-        </View>
-      )}
+      <CustomHeader title="Timeline" />
 
       {trips.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -205,14 +190,8 @@ export default function ViewTripsScreen() {
             <>
               <Text style={styles.emptyText}>No trips yet</Text>
               <Text style={styles.emptySubText}>
-                Start planning your first trip by adding one!
+                Tap the + button below to add your first trip!
               </Text>
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => router.push('/add-trip')}
-              >
-                <Text style={styles.addButtonText}>Add Trip</Text>
-              </TouchableOpacity>
             </>
           )}
         </View>
@@ -231,6 +210,15 @@ export default function ViewTripsScreen() {
           }
         />
       )}
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/add-trip')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -239,41 +227,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a1a',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  backButton: {
-    paddingRight: 16,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-    flex: 1,
-  },
-  debugInfo: {
-    backgroundColor: '#2a2a2a',
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#999',
-    fontFamily: 'monospace',
   },
   loadingContainer: {
     flex: 1,
@@ -328,19 +281,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  addButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   listContainer: {
     padding: 16,
+    paddingBottom: 100, // Extra padding for FAB
   },
   tripCard: {
     backgroundColor: '#2a2a2a',
@@ -379,5 +322,24 @@ const styles = StyleSheet.create({
   tripType: {
     fontSize: 14,
     color: '#999',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
   },
 });

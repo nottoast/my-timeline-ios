@@ -6,8 +6,10 @@ export default function RootLayout() {
     <AuthProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="view-trips" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="add-trip" />
+        <Stack.Screen name="trip/[id]" />
       </Stack>
     </AuthProvider>
   );

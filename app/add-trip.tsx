@@ -20,6 +20,7 @@ import { createTrip } from '@/config/functions';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { Country } from '@/types';
+import CustomHeader from '@/components/CustomHeader';
 
 export default function AddTripScreen() {
   const router = useRouter();
@@ -181,6 +182,8 @@ export default function AddTripScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <CustomHeader title="Add Trip" />
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -189,16 +192,6 @@ export default function AddTripScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.backButtonText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Add Trip</Text>
-          </View>
-
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Trip Name</Text>
@@ -451,22 +444,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 30,
-  },
-  backButton: {
-    marginBottom: 20,
-  },
-  backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
   form: {
     gap: 24,

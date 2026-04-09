@@ -21,6 +21,7 @@ import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore'
 import { db } from '@/config/firebase';
 import { Country, Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
+import CustomHeader from '@/components/CustomHeader';
 
 export default function TripDetailsScreen() {
   const router = useRouter();
@@ -245,6 +246,7 @@ export default function TripDetailsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <CustomHeader title="Trip Details" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Loading trip...</Text>
@@ -255,6 +257,8 @@ export default function TripDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <CustomHeader title="Trip Details" />
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -263,16 +267,6 @@ export default function TripDetailsScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.backButtonText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Trip Details</Text>
-          </View>
-
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Trip Name</Text>
@@ -499,23 +493,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 16,
     fontSize: 16,
-  },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  backButton: {
-    marginBottom: 12,
-  },
-  backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
   },
   form: {
     padding: 20,
