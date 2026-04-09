@@ -182,7 +182,7 @@ export default function AddTripScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Add Trip" />
+      <CustomHeader title="Add Trip" showBackButton={true} />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

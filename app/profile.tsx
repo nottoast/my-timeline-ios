@@ -30,7 +30,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Profile" />
+      <CustomHeader title="Profile" showBackButton={true} />
       
       <View style={styles.content}>
         <View style={styles.profileSection}>

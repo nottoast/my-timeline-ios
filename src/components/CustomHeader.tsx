@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 interface CustomHeaderProps {
   title: string;
+  showBackButton?: boolean;
 }
 
-export default function CustomHeader({ title }: CustomHeaderProps) {
+export default function CustomHeader({ title, showBackButton = false }: CustomHeaderProps) {
   const router = useRouter();
   const { user } = useAuth();
 
@@ -15,9 +17,24 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
     router.push('/profile');
   };
 
+  const handleBackPress = () => {
+    router.back();
+  };
+
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>{title}</Text>
+      <View style={styles.leftSection}>
+        {showBackButton && (
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={handleBackPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.title}>{title}</Text>
+      </View>
       
       <TouchableOpacity 
         style={styles.profileButton}
@@ -44,6 +61,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backButton: {
+    marginRight: 12,
+    padding: 4,
   },
   title: {
     fontSize: 24,

@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trip, Country } from '@/types';
@@ -26,101 +26,111 @@ export default function ViewTripsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchCountries = async () => {
+    try {
+      const countriesRef = collection(db, 'countries');
+      const querySnapshot = await getDocs(countriesRef);
+      const countriesMap = new Map<string, Country>();
+      
+      querySnapshot.forEach((doc) => {
+        countriesMap.set(doc.id, {
+          id: doc.id,
+          ...doc.data(),
+        } as Country);
+      });
+      
+      setCountries(countriesMap);
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+    }
+  };
+
   // Fetch countries once on mount
   useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const countriesRef = collection(db, 'countries');
-        const querySnapshot = await getDocs(countriesRef);
-        const countriesMap = new Map<string, Country>();
-        
-        querySnapshot.forEach((doc) => {
-          countriesMap.set(doc.id, {
-            id: doc.id,
-            ...doc.data(),
-          } as Country);
-        });
-        
-        setCountries(countriesMap);
-      } catch (error) {
-        console.error('Error fetching countries:', error);
-      }
-    };
-
     fetchCountries();
   }, []);
 
-  const fetchTrips = async () => {
+  // Set up real-time listener for trips
+  useEffect(() => {
     if (!user) {
-      console.log('No user found, skipping fetch');
+      console.log('No user found, skipping listener');
       setError('No user logged in');
       setLoading(false);
-      setRefreshing(false);
       return;
     }
 
     setError(null);
-    try {
-      console.log('Fetching trips for user:', user.uid);
-      const tripsRef = collection(db, 'trips');
-      const q = query(
-        tripsRef,
-        where('userId', '==', user.uid),
-        where('tripType', '==', 'PARENT')
-      );
+    setLoading(true);
 
-      const querySnapshot = await getDocs(q);
-      const fetchedTrips: Trip[] = [];
+    console.log('Setting up real-time listener for user:', user.uid);
+    const tripsRef = collection(db, 'trips');
+    const q = query(
+      tripsRef,
+      where('userId', '==', user.uid),
+      where('tripType', '==', 'PARENT')
+    );
 
-      querySnapshot.forEach((doc) => {
-        console.log('Found trip:', doc.id, doc.data());
-        const data = doc.data();
-        
-        // Convert Firestore Timestamps to ISO strings
-        fetchedTrips.push({
-          id: doc.id,
-          userId: data.userId,
-          tripType: data.tripType,
-          name: data.name,
-          startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
-          fromCountryId: data.fromCountryId,
-          fromCountryName: data.fromCountryName,
-          toCountryId: data.toCountryId,
-          toCountryName: data.toCountryName,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-          parentTripId: data.parentTripId,
-        } as Trip);
-      });
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const fetchedTrips: Trip[] = [];
 
-      // Sort by startDate descending (most recent first)
-      fetchedTrips.sort((a, b) => {
-        return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
-      });
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          // Convert Firestore Timestamps to ISO strings
+          fetchedTrips.push({
+            id: doc.id,
+            userId: data.userId,
+            tripType: data.tripType,
+            name: data.name,
+            startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+            fromCountryId: data.fromCountryId,
+            fromCountryName: data.fromCountryName,
+            toCountryId: data.toCountryId,
+            toCountryName: data.toCountryName,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+            parentTripId: data.parentTripId,
+          } as Trip);
+        });
 
-      console.log('Total trips fetched:', fetchedTrips.length);
-      setTrips(fetchedTrips);
-    } catch (error) {
-      console.error('Error fetching trips:', error);
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        setError(error.message);
-      } else {
-        setError('Failed to fetch trips');
+        // Sort by startDate descending (most recent first)
+        fetchedTrips.sort((a, b) => {
+          return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+        });
+
+        console.log('Real-time update: Total trips:', fetchedTrips.length);
+        setTrips(fetchedTrips);
+        setLoading(false);
+        setRefreshing(false);
+      },
+      (error) => {
+        console.error('Error in real-time listener:', error);
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError('Failed to fetch trips');
+        }
+        setLoading(false);
+        setRefreshing(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    );
 
-  useEffect(() => {
-    fetchTrips();
+    // Cleanup listener on unmount or when user changes
+    return () => {
+      console.log('Cleaning up real-time listener');
+      unsubscribe();
+    };
   }, [user]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchTrips();
+    // With real-time listener, data updates automatically
+    // Just provide visual feedback for the user
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 500);
   };
 
   const formatDate = (dateString: string) => {

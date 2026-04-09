@@ -17,11 +17,12 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { Country, Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TripDetailsScreen() {
   const router = useRouter();
@@ -44,6 +45,14 @@ export default function TripDetailsScreen() {
   const [toCountryId, setToCountryId] = useState('');
   const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
   const [showToCountryPicker, setShowToCountryPicker] = useState(false);
+
+  // Child trips state
+  const [childTrips, setChildTrips] = useState<Trip[]>([]);
+  const [isChildTripsExpanded, setIsChildTripsExpanded] = useState(false);
+  const [isChildTrip, setIsChildTrip] = useState(false);
+  const [parentTripName, setParentTripName] = useState('');
+  const [parentTripId, setParentTripId] = useState('');
+  const [tripType, setTripType] = useState<'PARENT' | 'CHILD'>('PARENT');
 
   // Load trip data and countries
   useEffect(() => {
@@ -69,6 +78,47 @@ export default function TripDetailsScreen() {
           console.log('Start date type:', typeof tripData.startDate, tripData.startDate);
           
           setTripName(tripData.name || '');
+          setTripType(tripData.tripType || 'PARENT');
+          setIsChildTrip(tripData.tripType === 'CHILD');
+          
+          // If this is a child trip, fetch parent trip name
+          if (tripData.tripType === 'CHILD' && tripData.parentTripId) {
+            setParentTripId(tripData.parentTripId);
+            const parentTripRef = doc(db, 'trips', tripData.parentTripId);
+            const parentTripDoc = await getDoc(parentTripRef);
+            if (parentTripDoc.exists()) {
+              setParentTripName(parentTripDoc.data().name || '');
+            }
+          }
+          
+          // If this is a parent trip, fetch child trips
+          if (tripData.tripType === 'PARENT') {
+            const childTripsRef = collection(db, 'trips');
+            const childTripsQuery = query(
+              childTripsRef,
+              where('parentTripId', '==', id),
+              where('tripType', '==', 'CHILD')
+            );
+            const childTripsSnapshot = await getDocs(childTripsQuery);
+            const fetchedChildTrips: Trip[] = [];
+            childTripsSnapshot.forEach((doc) => {
+              const data = doc.data();
+              fetchedChildTrips.push({
+                id: doc.id,
+                userId: data.userId,
+                tripType: data.tripType,
+                name: data.name,
+                startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
+                fromCountryId: data.fromCountryId,
+                fromCountryName: data.fromCountryName,
+                toCountryId: data.toCountryId,
+                toCountryName: data.toCountryName,
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+                parentTripId: data.parentTripId,
+              } as Trip);
+            });
+            setChildTrips(fetchedChildTrips);
+          }
           
           // Handle Firestore Timestamp or ISO string
           let startDateValue: Date;
@@ -95,17 +145,12 @@ export default function TripDetailsScreen() {
           setFromCountryId(tripData.fromCountryId || '');
           setToCountryId(tripData.toCountryId || '');
           
-          // Check if there's a return trip
-          // For now, we'll just use the single trip data
-          // TODO: Check for return trip if needed
           setIsRoundTrip(false);
         } else {
-          Alert.alert('Error', 'Trip not found');
           router.back();
         }
       } catch (error) {
         console.error('Error loading trip:', error);
-        Alert.alert('Error', 'Failed to load trip data');
       } finally {
         setLoading(false);
       }
@@ -142,23 +187,24 @@ export default function TripDetailsScreen() {
   };
 
   const handleSave = async () => {
-    if (!tripName.trim()) {
-      Alert.alert('Error', 'Please enter a trip name');
+    // Only validate trip name for parent trips
+    if (!isChildTrip && !tripName.trim()) {
+      console.log('Error: Please enter a trip name');
       return;
     }
 
     if (!fromCountryId) {
-      Alert.alert('Error', 'Please select a from country');
+      console.log('Error: Please select a from country');
       return;
     }
 
     if (!toCountryId) {
-      Alert.alert('Error', 'Please select a to country');
+      console.log('Error: Please select a to country');
       return;
     }
 
     if (isRoundTrip && endDate <= startDate) {
-      Alert.alert('Error', 'End date must be after start date');
+      console.log('Error: End date must be after start date');
       return;
     }
 
@@ -167,7 +213,6 @@ export default function TripDetailsScreen() {
     try {
       const tripRef = doc(db, 'trips', id);
       const updateData: any = {
-        name: tripName,
         startDate: startDate.toISOString(),
         fromCountryId,
         toCountryId,
@@ -175,13 +220,16 @@ export default function TripDetailsScreen() {
         toCountryName: countries.find(c => c.id === toCountryId)?.name || '',
       };
 
+      // Only update name for parent trips
+      if (!isChildTrip) {
+        updateData.name = tripName;
+      }
+
       await updateDoc(tripRef, updateData);
       
-      Alert.alert('Success', 'Trip updated successfully!');
       router.back();
     } catch (error) {
       console.error('Error updating trip:', error);
-      Alert.alert('Error', 'Failed to update trip. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -192,38 +240,16 @@ export default function TripDetailsScreen() {
   };
 
   const handleDelete = () => {
-    console.log('handleDelete called');
-    console.log('Platform.OS:', Platform.OS);
-    console.log('typeof window:', typeof window);
-    console.log('typeof window.confirm:', typeof window?.confirm);
-    
-    // Simple direct approach
-    const confirmed = confirm('Are you sure you want to delete this trip? This will also delete any associated return trips. This action cannot be undone.');
-    
-    console.log('Confirmation result:', confirmed);
-    
-    if (!confirmed) {
-      console.log('User cancelled deletion');
-      return;
-    }
-    
-    console.log('Delete confirmed, calling deleteTrip with id:', id);
     setIsDeleting(true);
     
     deleteTrip(id)
       .then((response) => {
-        console.log('Delete response:', response);
-        
         if (response.success) {
-          alert(`Trip deleted successfully. ${response.deletedCount || 1} trip(s) removed.`);
           router.back();
-        } else {
-          alert(response.message || 'Failed to delete trip');
         }
       })
       .catch((error) => {
         console.error('Error deleting trip:', error);
-        alert('Failed to delete trip. Please try again.');
       })
       .finally(() => {
         setIsDeleting(false);
@@ -246,7 +272,7 @@ export default function TripDetailsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <CustomHeader title="Trip Details" />
+        <CustomHeader title="Trip Details" showBackButton={true} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Loading trip...</Text>
@@ -257,7 +283,7 @@ export default function TripDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Trip Details" />
+      <CustomHeader title="Trip Details" showBackButton={true} />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -268,19 +294,28 @@ export default function TripDetailsScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.form}>
+            {/* Trip Name Input - Read-only for child trips showing parent name */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Trip Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Paris Adventure"
-                placeholderTextColor="#666"
-                value={tripName}
-                onChangeText={setTripName}
-                onFocus={() => {
-                  setShowStartDatePicker(false);
-                  setShowEndDatePicker(false);
-                }}
-              />
+              <Text style={styles.label}>
+                 Trip Name
+              </Text>
+              {isChildTrip ? (
+                <View style={[styles.input, styles.readOnlyInput]}>
+                  <Text style={styles.readOnlyText}>{parentTripName}</Text>
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Paris Adventure"
+                  placeholderTextColor="#666"
+                  value={tripName}
+                  onChangeText={setTripName}
+                  onFocus={() => {
+                    setShowStartDatePicker(false);
+                    setShowEndDatePicker(false);
+                  }}
+                />
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -308,7 +343,7 @@ export default function TripDetailsScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Start Date</Text>
+              <Text style={styles.label}>Date</Text>
               {Platform.OS === 'web' ? (
                 <input
                   type="date"
@@ -359,11 +394,71 @@ export default function TripDetailsScreen() {
             )}
           </View>
 
-          {/* Delete Section */}
-          <View style={styles.deleteSection}>
-            <View style={styles.deleteTextContainer}>
-              <Text style={styles.deleteLabel}>Would you like to delete this trip?</Text>
+          {/* Parent Trip Card - Only show for CHILD trips */}
+          {tripType === 'CHILD' && parentTripId && (
+            <View style={styles.parentTripCard}>
+              <TouchableOpacity
+                style={styles.parentTripButton}
+                onPress={() => router.push(`/trip/${parentTripId}`)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.parentTripContent}>
+                  <Text style={styles.parentTripLabel}>Part of trip</Text>
+                  <Text style={styles.parentTripName}>{parentTripName}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#fff" />
+              </TouchableOpacity>
             </View>
+          )}
+
+          {/* Child Trips Card - Only show for PARENT trips */}
+          {tripType === 'PARENT' && childTrips.length > 0 && (
+            <View style={styles.childTripsCard}>
+              <TouchableOpacity
+                style={styles.childTripsHeader}
+                onPress={() => setIsChildTripsExpanded(!isChildTripsExpanded)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.childTripsTitle}>
+                  There {childTrips.length === 1 ? 'is' : 'are'} {childTrips.length} related trip{childTrips.length !== 1 ? 's' : ''}, click to view
+                </Text>
+                <Ionicons 
+                  name={isChildTripsExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color="#fff" 
+                />
+              </TouchableOpacity>
+              
+              {isChildTripsExpanded && (
+                <View style={styles.childTripsList}>
+                  {childTrips.map((childTrip, index) => (
+                    <TouchableOpacity
+                      key={childTrip.id}
+                      style={[
+                        styles.childTripRow,
+                        index === childTrips.length - 1 && styles.childTripRowLast
+                      ]}
+                      onPress={() => router.push(`/trip/${childTrip.id}`)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.childTripInfo}>
+                        <Text style={styles.childTripDate}>
+                          {formatDate(new Date(childTrip.startDate))}
+                        </Text>
+                        <Text style={styles.childTripRoute}>
+                          {childTrip.fromCountryName} → {childTrip.toCountryName}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#666" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Bottom buttons */}
+          <View style={styles.bottomButtons}>
             <TouchableOpacity
               style={[styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
               onPress={() => {
@@ -375,17 +470,6 @@ export default function TripDetailsScreen() {
               <Text style={styles.deleteButtonText}>
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Bottom buttons */}
-          <View style={styles.bottomButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-              disabled={isSaving}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -495,7 +579,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   form: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   inputGroup: {
     marginBottom: 20,
@@ -514,6 +599,92 @@ const styles = StyleSheet.create({
     color: '#fff',
     borderWidth: 1,
     borderColor: '#3a3a3a',
+  },
+  readOnlyInput: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#2a2a2a',
+  },
+  readOnlyText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  parentTripCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    overflow: 'hidden',
+  },
+  parentTripButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  parentTripContent: {
+    flex: 1,
+  },
+  parentTripLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 4,
+  },
+  parentTripName: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  childTripsCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    overflow: 'hidden',
+  },
+  childTripsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  childTripsTitle: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+    flex: 1,
+  },
+  childTripsList: {
+    borderTopWidth: 1,
+    borderTopColor: '#3a3a3a',
+  },
+  childTripRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3a3a3a',
+  },
+  childTripRowLast: {
+    borderBottomWidth: 0,
+  },
+  childTripInfo: {
+    flex: 1,
+  },
+  childTripDate: {
+    fontSize: 14,
+    color: '#fff',
+    marginBottom: 4,
+  },
+  childTripRoute: {
+    fontSize: 13,
+    color: '#4CAF50',
   },
   countryButton: {
     backgroundColor: '#2a2a2a',
@@ -548,16 +719,17 @@ const styles = StyleSheet.create({
     borderTopColor: '#2a2a2a',
     backgroundColor: '#1a1a1a',
   },
-  cancelButton: {
+  deleteButton: {
     flex: 1,
-    backgroundColor: '#2a2a2a',
+    backgroundColor: '#dc3545',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
   },
-  cancelButtonText: {
+  deleteButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
@@ -615,37 +787,5 @@ const styles = StyleSheet.create({
   countryItemText: {
     fontSize: 16,
     color: '#fff',
-  },
-  deleteSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#2a2a2a',
-    backgroundColor: '#1a1a1a',
-  },
-  deleteTextContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  deleteLabel: {
-    fontSize: 16,
-    color: '#fff',
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  deleteButtonDisabled: {
-    opacity: 0.5,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
