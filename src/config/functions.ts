@@ -1,7 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { getFunctions } from 'firebase/functions';
 import app from './firebase';
-import { CreateUserRequest, CreateUserResponse, CreateTripRequest, CreateTripResponse } from '@/types';
+import { CreateUserRequest, CreateUserResponse, CreateTripRequest, CreateTripResponse, DeleteTripRequest, DeleteTripResponse } from '@/types';
 
 // Initialize Firebase Functions with Europe region
 const functions = getFunctions(app, 'europe-west1');
@@ -54,6 +54,31 @@ export const createTrip = async (
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to create trip',
+    };
+  }
+};
+
+/**
+ * Call the deleteTrip Firebase Function
+ * @param tripId - The ID of the trip to delete
+ * @returns Promise with the response indicating success
+ */
+export const deleteTrip = async (
+  tripId: string
+): Promise<DeleteTripResponse> => {
+  try {
+    const deleteTripFn = httpsCallable<DeleteTripRequest, DeleteTripResponse>(
+      functions,
+      'deleteTrip'
+    );
+    
+    const result = await deleteTripFn({ tripId });
+    return result.data;
+  } catch (error) {
+    console.error('Error calling deleteTrip function:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete trip',
     };
   }
 };

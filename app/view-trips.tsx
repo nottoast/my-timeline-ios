@@ -82,7 +82,9 @@ export default function ViewTripsScreen() {
           name: data.name,
           startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : data.startDate,
           fromCountryId: data.fromCountryId,
+          fromCountryName: data.fromCountryName,
           toCountryId: data.toCountryId,
+          toCountryName: data.toCountryName,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
           parentTripId: data.parentTripId,
         } as Trip);
@@ -134,7 +136,11 @@ export default function ViewTripsScreen() {
   };
 
   const renderTripItem = ({ item }: { item: Trip }) => (
-    <View style={styles.tripCard}>
+    <TouchableOpacity
+      style={styles.tripCard}
+      onPress={() => router.push(`/trip/${item.id}`)}
+      activeOpacity={0.7}
+    >
       <View style={styles.tripHeader}>
         <Text style={styles.tripName}>{item.name || 'Unnamed Trip'}</Text>
       </View>
@@ -143,10 +149,10 @@ export default function ViewTripsScreen() {
       </View>
       <View style={styles.tripCountries}>
         <Text style={styles.tripCountryText}>
-          {getCountryName(item.fromCountryId)} → {getCountryName(item.toCountryId)}
+          {item.fromCountryName} → {item.toCountryName}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {

@@ -7,6 +7,8 @@ import {
   Trip,
   CreateTripRequest,
   CreateTripResponse,
+  DeleteTripRequest,
+  DeleteTripResponse,
 } from '../../src/types';
 
 // Initialize Firebase Admin
@@ -20,7 +22,10 @@ const db = admin.firestore();
  * Body: { username: string, email: string }
  */
 export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>(
-  { region: 'europe-west1' },
+  { 
+    region: 'europe-west1',
+    cors: true, // Enable CORS for all origins
+  },
   async (request): Promise<CreateUserResponse> => {
     const data = request.data;
     try {
@@ -97,7 +102,10 @@ export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>
  * Body: { name: string, startDate: string, isRoundTrip: boolean, endDate?: string }
  */
 export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>(
-  { region: 'europe-west1' },
+  { 
+    region: 'europe-west1',
+    cors: true, // Enable CORS for all origins
+  },
   async (request): Promise<CreateTripResponse> => {
     const data = request.data;
     
@@ -126,6 +134,20 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           message: 'From and to countries are required',
         };
       }
+
+      // Fetch country names
+      const fromCountryDoc = await db.collection('countries').doc(fromCountryId).get();
+      const toCountryDoc = await db.collection('countries').doc(toCountryId).get();
+
+      if (!fromCountryDoc.exists || !toCountryDoc.exists) {
+        return {
+          success: false,
+          message: 'Invalid country IDs',
+        };
+      }
+
+      const fromCountryName = (fromCountryDoc.data() as any).name;
+      const toCountryName = (toCountryDoc.data() as any).name;
 
       if (isRoundTrip && !endDate) {
         return {
@@ -158,7 +180,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         name,
         startDate: startDateTimestamp,
         fromCountryId,
+        fromCountryName,
         toCountryId,
+        toCountryName,
         createdAt: now,
       };
 
@@ -172,7 +196,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         name,
         startDate: startDateTimestamp.toDate().toISOString(),
         fromCountryId,
+        fromCountryName,
         toCountryId,
+        toCountryName,
         createdAt: now.toDate().toISOString(),
       };
 
@@ -187,7 +213,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           tripType: 'CHILD',
           startDate: endDateTimestamp,
           fromCountryId: toCountryId, // Reversed
+          fromCountryName: toCountryName, // Reversed
           toCountryId: fromCountryId,  // Reversed
+          toCountryName: fromCountryName,  // Reversed
           parentTripId: parentTrip.id,
           createdAt: now,
         };
@@ -200,7 +228,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           tripType: 'CHILD',
           startDate: endDateTimestamp.toDate().toISOString(),
           fromCountryId: toCountryId, // Reversed
+          fromCountryName: toCountryName, // Reversed
           toCountryId: fromCountryId,  // Reversed
+          toCountryName: fromCountryName,  // Reversed
           parentTripId: parentTrip.id,
           createdAt: now.toDate().toISOString(),
         };
@@ -214,6 +244,95 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
       };
     } catch (error) {
       console.error('Error creating trip:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+);
+
+/**
+ * HTTP Cloud Function (v2) to delete a trip and its associated child trips
+ * POST /deleteTrip
+ * Body: { tripId: string }
+ */
+export const deleteTrip = onCall<DeleteTripRequest, Promise<DeleteTripResponse>>(
+  { 
+    region: 'europe-west1',
+    cors: true, // Enable CORS for all origins
+  },
+  async (request): Promise<DeleteTripResponse> => {
+    const data = request.data;
+    
+    try {
+      // Ensure user is authenticated
+      if (!request.auth) {
+        return {
+          success: false,
+          message: 'Authentication required',
+        };
+      }
+
+      const { tripId } = data;
+
+      // Validate input
+      if (!tripId) {
+        return {
+          success: false,
+          message: 'Trip ID is required',
+        };
+      }
+
+      const userId = request.auth.uid;
+
+      // Get the trip document
+      const tripRef = db.collection('trips').doc(tripId);
+      const tripDoc = await tripRef.get();
+
+      if (!tripDoc.exists) {
+        return {
+          success: false,
+          message: 'Trip not found',
+        };
+      }
+
+      const tripData = tripDoc.data();
+
+      // Verify the trip belongs to the authenticated user
+      if (tripData?.userId !== userId) {
+        return {
+          success: false,
+          message: 'Unauthorized: Trip does not belong to this user',
+        };
+      }
+
+      let deletedCount = 0;
+
+      // If this is a PARENT trip, also delete associated CHILD trips
+      if (tripData.tripType === 'PARENT') {
+        const childTripsQuery = await db
+          .collection('trips')
+          .where('parentTripId', '==', tripId)
+          .get();
+
+        // Delete all child trips
+        const deletePromises = childTripsQuery.docs.map(doc => doc.ref.delete());
+        await Promise.all(deletePromises);
+        deletedCount += childTripsQuery.docs.length;
+      }
+
+      // Delete the main trip
+      await tripRef.delete();
+      deletedCount += 1;
+
+      return {
+        success: true,
+        deletedCount,
+        message: `Successfully deleted ${deletedCount} trip(s)`,
+      };
+    } catch (error) {
+      console.error('Error deleting trip:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error occurred',

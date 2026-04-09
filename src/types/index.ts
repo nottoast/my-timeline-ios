@@ -36,7 +36,9 @@ export interface Trip {
   name?: string; // Only set on PARENT trip
   startDate: string; // ISO date string
   fromCountryId: string;
+  fromCountryName: string;
   toCountryId: string;
+  toCountryName: string;
   parentTripId?: string; // Set on CHILD trip, references the PARENT trip
   createdAt: string;
 }
@@ -55,4 +57,14 @@ export interface CreateTripResponse {
   trip?: Trip;
   returnTrip?: Trip;
   message?: string;
+}
+
+export interface DeleteTripRequest {
+  tripId: string;
+}
+
+export interface DeleteTripResponse {
+  success: boolean;
+  message?: string;
+  deletedCount?: number;
 }

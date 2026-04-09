@@ -5,8 +5,8 @@ service cloud.firestore {
     
     // Users collection
     match /users/{userId} {
-      // Anyone can read user profiles
-      allow read: if true;
+      // Only authenticated users can read user profiles
+      allow read: if request.auth != null;
       
       // Only authenticated users can create/update their own profile
       allow create, update: if request.auth != null 
@@ -19,12 +19,8 @@ service cloud.firestore {
     
     // Trips collection (for future use)
     match /trips/{tripId} {
-      // Anyone can read public trips
-      allow read: if resource.data.isPublic == true;
-      
-      // Only authenticated users can read their own trips
-      allow read: if request.auth != null 
-                  && request.auth.uid == resource.data.userId;
+      // Only authenticated users can read trips
+      allow read: if request.auth != null;
       
       // Only authenticated users can create trips
       allow create: if request.auth != null 
@@ -33,6 +29,12 @@ service cloud.firestore {
       // Only trip owner can update/delete
       allow update, delete: if request.auth != null 
                             && request.auth.uid == resource.data.userId;
+    }
+    
+    // Countries collection - read-only for authenticated users
+    match /countries/{countryId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only admins via Firebase console
     }
     
     // Default: deny all other access

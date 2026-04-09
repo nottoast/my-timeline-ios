@@ -13,23 +13,29 @@ import {
   Alert,
   Modal,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { createTrip } from '@/config/functions';
-import { collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { Country } from '@/types';
+import { Country, Trip } from '@/types';
+import { deleteTrip } from '@/config/functions';
 
-export default function AddTripScreen() {
+export default function TripDetailsScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const [tripName, setTripName] = useState('');
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   
   // Country selection state
   const [countries, setCountries] = useState<Country[]>([]);
@@ -37,42 +43,75 @@ export default function AddTripScreen() {
   const [toCountryId, setToCountryId] = useState('');
   const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
   const [showToCountryPicker, setShowToCountryPicker] = useState(false);
-  const [loadingCountries, setLoadingCountries] = useState(true);
 
-  // Fetch countries from Firestore
+  // Load trip data and countries
   useEffect(() => {
-    const fetchCountries = async () => {
+    const loadData = async () => {
       try {
-        console.log('Fetching countries...');
+        // Load countries
         const countriesRef = collection(db, 'countries');
-        const querySnapshot = await getDocs(countriesRef);
-        
-        console.log('Countries query complete. Docs found:', querySnapshot.size);
-        
+        const countriesSnapshot = await getDocs(countriesRef);
         const fetchedCountries: Country[] = [];
-        querySnapshot.forEach((doc) => {
-          console.log('Country doc:', doc.id, doc.data());
-          fetchedCountries.push({
-            id: doc.id,
-            ...doc.data(),
-          } as Country);
+        countriesSnapshot.forEach((doc) => {
+          fetchedCountries.push({ id: doc.id, ...doc.data() } as Country);
         });
-        
-        // Sort client-side instead
         fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
-        
-        console.log('Total countries loaded:', fetchedCountries.length);
         setCountries(fetchedCountries);
+
+        // Load trip data
+        const tripRef = doc(db, 'trips', id);
+        const tripDoc = await getDoc(tripRef);
+        
+        if (tripDoc.exists()) {
+          const tripData = tripDoc.data();
+          console.log('Loaded trip data:', tripData);
+          console.log('Start date type:', typeof tripData.startDate, tripData.startDate);
+          
+          setTripName(tripData.name || '');
+          
+          // Handle Firestore Timestamp or ISO string
+          let startDateValue: Date;
+          if (tripData.startDate?.toDate) {
+            // Firestore Timestamp
+            startDateValue = tripData.startDate.toDate();
+          } else if (typeof tripData.startDate === 'string') {
+            // ISO string
+            startDateValue = new Date(tripData.startDate);
+          } else {
+            // Fallback to current date
+            console.warn('Invalid startDate format, using current date');
+            startDateValue = new Date();
+          }
+          
+          console.log('Converted start date:', startDateValue);
+          
+          if (isNaN(startDateValue.getTime())) {
+            console.error('Invalid date after conversion');
+            startDateValue = new Date();
+          }
+          
+          setStartDate(startDateValue);
+          setFromCountryId(tripData.fromCountryId || '');
+          setToCountryId(tripData.toCountryId || '');
+          
+          // Check if there's a return trip
+          // For now, we'll just use the single trip data
+          // TODO: Check for return trip if needed
+          setIsRoundTrip(false);
+        } else {
+          Alert.alert('Error', 'Trip not found');
+          router.back();
+        }
       } catch (error) {
-        console.error('Error fetching countries:', error);
-        Alert.alert('Error', 'Failed to load countries: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        console.error('Error loading trip:', error);
+        Alert.alert('Error', 'Failed to load trip data');
       } finally {
-        setLoadingCountries(false);
+        setLoading(false);
       }
     };
 
-    fetchCountries();
-  }, []);
+    loadData();
+  }, [id]);
 
   const handleStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -83,7 +122,6 @@ export default function AddTripScreen() {
     }
     if (selectedDate) {
       setStartDate(selectedDate);
-      // If start date is now after end date, update end date to match start date
       if (isRoundTrip && selectedDate > endDate) {
         setEndDate(selectedDate);
       }
@@ -102,68 +140,93 @@ export default function AddTripScreen() {
     }
   };
 
-  const handleRoundTripToggle = (value: boolean) => {
-    setIsRoundTrip(value);
-    setShowStartDatePicker(false);
-    setShowEndDatePicker(false);
-  };
-
   const handleSave = async () => {
-    console.log('handleSave called');
-    console.log('Trip data:', { tripName, fromCountryId, toCountryId, isRoundTrip, startDate, endDate });
-    
     if (!tripName.trim()) {
-      console.log('Validation failed: No trip name');
       Alert.alert('Error', 'Please enter a trip name');
       return;
     }
 
     if (!fromCountryId) {
-      console.log('Validation failed: No from country');
       Alert.alert('Error', 'Please select a from country');
       return;
     }
 
     if (!toCountryId) {
-      console.log('Validation failed: No to country');
       Alert.alert('Error', 'Please select a to country');
       return;
     }
 
     if (isRoundTrip && endDate <= startDate) {
-      console.log('Validation failed: End date before start date');
       Alert.alert('Error', 'End date must be after start date');
       return;
     }
 
-    const tripData = {
-      name: tripName,
-      startDate: startDate.toISOString(),
-      fromCountryId,
-      toCountryId,
-      isRoundTrip,
-      ...(isRoundTrip && { endDate: endDate.toISOString() }),
-    };
-
-    console.log('Calling createTrip with:', tripData);
     setIsSaving(true);
     
     try {
-      const response = await createTrip(tripData);
-      console.log('createTrip response:', response);
+      const tripRef = doc(db, 'trips', id);
+      const updateData: any = {
+        name: tripName,
+        startDate: startDate.toISOString(),
+        fromCountryId,
+        toCountryId,
+        fromCountryName: countries.find(c => c.id === fromCountryId)?.name || '',
+        toCountryName: countries.find(c => c.id === toCountryId)?.name || '',
+      };
+
+      await updateDoc(tripRef, updateData);
       
-      if (response.success && response.trip) {
-        Alert.alert('Success', 'Trip created successfully!');
-        router.push(`/trip/${response.trip.id}`);
-      } else {
-        Alert.alert('Error', response.message || 'Failed to create trip');
-      }
+      Alert.alert('Success', 'Trip updated successfully!');
+      router.back();
     } catch (error) {
-      console.error('Error creating trip:', error);
-      Alert.alert('Error', 'Failed to create trip. Please try again.');
+      console.error('Error updating trip:', error);
+      Alert.alert('Error', 'Failed to update trip. Please try again.');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    router.back();
+  };
+
+  const handleDelete = () => {
+    console.log('handleDelete called');
+    console.log('Platform.OS:', Platform.OS);
+    console.log('typeof window:', typeof window);
+    console.log('typeof window.confirm:', typeof window?.confirm);
+    
+    // Simple direct approach
+    const confirmed = confirm('Are you sure you want to delete this trip? This will also delete any associated return trips. This action cannot be undone.');
+    
+    console.log('Confirmation result:', confirmed);
+    
+    if (!confirmed) {
+      console.log('User cancelled deletion');
+      return;
+    }
+    
+    console.log('Delete confirmed, calling deleteTrip with id:', id);
+    setIsDeleting(true);
+    
+    deleteTrip(id)
+      .then((response) => {
+        console.log('Delete response:', response);
+        
+        if (response.success) {
+          alert(`Trip deleted successfully. ${response.deletedCount || 1} trip(s) removed.`);
+          router.back();
+        } else {
+          alert(response.message || 'Failed to delete trip');
+        }
+      })
+      .catch((error) => {
+        console.error('Error deleting trip:', error);
+        alert('Failed to delete trip. Please try again.');
+      })
+      .finally(() => {
+        setIsDeleting(false);
+      });
   };
 
   const getCountryName = (countryId: string) => {
@@ -178,6 +241,17 @@ export default function AddTripScreen() {
       day: 'numeric',
     });
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading trip...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -196,7 +270,7 @@ export default function AddTripScreen() {
             >
               <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>Add Trip</Text>
+            <Text style={styles.title}>Trip Details</Text>
           </View>
 
           <View style={styles.form}>
@@ -220,10 +294,9 @@ export default function AddTripScreen() {
               <TouchableOpacity
                 style={styles.countryButton}
                 onPress={() => setShowFromCountryPicker(true)}
-                disabled={loadingCountries}
               >
                 <Text style={[styles.countryButtonText, !fromCountryId && styles.placeholderText]}>
-                  {loadingCountries ? 'Loading...' : getCountryName(fromCountryId)}
+                  {getCountryName(fromCountryId)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -233,10 +306,9 @@ export default function AddTripScreen() {
               <TouchableOpacity
                 style={styles.countryButton}
                 onPress={() => setShowToCountryPicker(true)}
-                disabled={loadingCountries}
               >
                 <Text style={[styles.countryButtonText, !toCountryId && styles.placeholderText]}>
-                  {loadingCountries ? 'Loading...' : getCountryName(toCountryId)}
+                  {getCountryName(toCountryId)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -251,7 +323,6 @@ export default function AddTripScreen() {
                     const selectedDate = new Date(e.target.value);
                     if (!isNaN(selectedDate.getTime())) {
                       setStartDate(selectedDate);
-                      // If start date is now after end date, update end date to match start date
                       if (isRoundTrip && selectedDate > endDate) {
                         setEndDate(selectedDate);
                       }
@@ -292,67 +363,36 @@ export default function AddTripScreen() {
                 onChange={handleStartDateChange}
               />
             )}
+          </View>
 
-            <View style={styles.inputGroup}>
-              <View style={styles.toggleRow}>
-                <Text style={styles.label}>Round Trip?</Text>
-                <Switch
-                  value={isRoundTrip}
-                  onValueChange={handleRoundTripToggle}
-                  trackColor={{ false: '#3a3a3a', true: '#007AFF' }}
-                  thumbColor={isRoundTrip ? '#ffffff' : '#f4f3f4'}
-                />
-              </View>
+          {/* Delete Section */}
+          <View style={styles.deleteSection}>
+            <View style={styles.deleteTextContainer}>
+              <Text style={styles.deleteLabel}>Would you like to delete this trip?</Text>
             </View>
+            <TouchableOpacity
+              style={[styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
+              onPress={() => {
+                console.log('Delete button pressed!');
+                handleDelete();
+              }}
+              disabled={isDeleting || isSaving}
+            >
+              <Text style={styles.deleteButtonText}>
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-            {isRoundTrip && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>End Date</Text>
-                {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    value={endDate.toISOString().split('T')[0]}
-                    min={startDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const selectedDate = new Date(e.target.value);
-                      if (!isNaN(selectedDate.getTime())) {
-                        setEndDate(selectedDate);
-                      }
-                    }}
-                    style={{
-                      backgroundColor: '#2a2a2a',
-                      borderRadius: 12,
-                      padding: 16,
-                      fontSize: 16,
-                      color: '#ffffff',
-                      border: '1px solid #3a3a3a',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      colorScheme: 'dark',
-                    }}
-                  />
-                ) : (
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => setShowEndDatePicker(true)}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {formatDate(endDate)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {Platform.OS !== 'web' && isRoundTrip && showEndDatePicker && (
-              <DateTimePicker
-                value={endDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                minimumDate={startDate}
-                onChange={handleEndDateChange}
-              />
-            )}
+          {/* Bottom buttons */}
+          <View style={styles.bottomButtons}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+              disabled={isSaving}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -360,7 +400,7 @@ export default function AddTripScreen() {
               disabled={isSaving}
             >
               <Text style={styles.saveButtonText}>
-                {isSaving ? 'Saving...' : 'Save Trip'}
+                {isSaving ? 'Saving...' : 'Save'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -448,88 +488,55 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 16,
+    fontSize: 16,
   },
   header: {
-    marginBottom: 30,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
   },
   backButton: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   backButtonText: {
     color: '#007AFF',
     fontSize: 16,
-    fontWeight: '500',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#fff',
   },
   form: {
-    gap: 24,
+    padding: 20,
   },
   inputGroup: {
-    gap: 8,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 4,
+    color: '#fff',
+    marginBottom: 8,
   },
   input: {
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    padding: 16,
     fontSize: 16,
-    color: '#ffffff',
+    color: '#fff',
     borderWidth: 1,
     borderColor: '#3a3a3a',
-  },
-  dateButton: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#ffffff',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 30,
-    alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#007AFF',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
   },
   countryButton: {
     backgroundColor: '#2a2a2a',
@@ -539,11 +546,59 @@ const styles = StyleSheet.create({
     borderColor: '#3a3a3a',
   },
   countryButtonText: {
-    color: '#ffffff',
     fontSize: 16,
+    color: '#fff',
   },
   placeholderText: {
     color: '#666',
+  },
+  dateButton: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#fff',
+  },
+  bottomButtons: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+    backgroundColor: '#1a1a1a',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -551,36 +606,69 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#2a2a2a',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
-    paddingBottom: 20,
+    paddingTop: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: '#3a3a3a',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#fff',
   },
   modalClose: {
     fontSize: 24,
-    color: '#999',
+    color: '#fff',
   },
   countryItem: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: '#3a3a3a',
   },
   countryItemText: {
     fontSize: 16,
-    color: '#ffffff',
+    color: '#fff',
+  },
+  deleteSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#2a2a2a',
+    backgroundColor: '#1a1a1a',
+  },
+  deleteTextContainer: {
+    flex: 1,
+    marginRight: 16,
+  },
+  deleteLabel: {
+    fontSize: 16,
+    color: '#fff',
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  deleteButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
