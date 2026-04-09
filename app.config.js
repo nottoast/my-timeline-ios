@@ -1,7 +1,7 @@
 module.exports = {
   expo: {
-    name: "my-app",
-    slug: "my-app",
+    name: "My Travel Guru",
+    slug: "my-travel-guru",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -27,6 +27,7 @@ module.exports = {
     },
     plugins: [
       "expo-router",
+      "@react-native-community/datetimepicker",
       [
         "expo-splash-screen",
         {
@@ -45,6 +46,9 @@ module.exports = {
       reactCompiler: true
     },
     extra: {
+      eas: {
+        projectId: "ebd2557c-5fd5-43fc-98d3-b21292507e15"
+      },
       firebaseApiKey: process.env.FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN,
       firebaseProjectId: process.env.FIREBASE_PROJECT_ID,

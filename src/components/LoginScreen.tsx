@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,59 +6,206 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function LoginScreen() {
-  const { signInWithGoogle, loading } = useAuth();
-  const [isSigningIn, setIsSigningIn] = React.useState(false);
+type AuthMode = 'initial' | 'login' | 'register';
 
-  const handleGoogleSignIn = async () => {
+export default function LoginScreen() {
+  const { signInWithEmail, registerWithEmail, loading } = useAuth();
+  const [authMode, setAuthMode] = useState<AuthMode>('initial');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
     try {
-      setIsSigningIn(true);
-      await signInWithGoogle();
-    } catch (error) {
-      console.error('Sign in error:', error);
-      alert('Failed to sign in. Please try again.');
+      setIsProcessing(true);
+      await signInWithEmail(email, password);
+    } catch (error: any) {
+      console.error('Login error:', error);
+      Alert.alert('Login Failed', error.message || 'Failed to sign in. Please try again.');
     } finally {
-      setIsSigningIn(false);
+      setIsProcessing(false);
     }
   };
+
+  const handleRegister = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      await registerWithEmail(email, password);
+      // User will be automatically redirected after registration via AuthContext
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      Alert.alert('Registration Failed', error.message || 'Failed to register. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const renderInitialView = () => (
+    <View style={styles.buttonContainer}>
+      <TouchableOpacity
+        style={styles.pillButton}
+        onPress={() => setAuthMode('login')}
+      >
+        <Text style={styles.pillButtonText}>Login</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={[styles.pillButton, styles.pillButtonSecondary]}
+        onPress={() => setAuthMode('register')}
+      >
+        <Text style={styles.pillButtonText}>Register</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderLoginView = () => (
+    <View style={styles.formContainer}>
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="#666"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        editable={!isProcessing}
+      />
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="#666"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        editable={!isProcessing}
+      />
+      
+      <TouchableOpacity
+        style={[styles.actionButton, isProcessing && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={isProcessing}
+      >
+        {isProcessing ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.actionButtonText}>Login</Text>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => {
+          setAuthMode('initial');
+          setEmail('');
+          setPassword('');
+        }}
+      >
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderRegisterView = () => (
+    <View style={styles.formContainer}>
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="#666"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        editable={!isProcessing}
+      />
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="#666"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        editable={!isProcessing}
+      />
+      
+      <TouchableOpacity
+        style={[styles.actionButton, isProcessing && styles.buttonDisabled]}
+        onPress={handleRegister}
+        disabled={isProcessing}
+      >
+        {isProcessing ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.actionButtonText}>Register</Text>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => {
+          setAuthMode('initial');
+          setEmail('');
+          setPassword('');
+        }}
+      >
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#4285F4" />
+        <ActivityIndicator size="large" color="#007AFF" />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>My Travel Guru</Text>
-        
-        <View style={styles.authSection}>
-          <Text style={styles.subtitle}>Login or Register</Text>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.headerCard}>
+            <Text style={styles.title}>My Travel Guru</Text>
+          </View>
           
-          <TouchableOpacity
-            style={[styles.googleButton, isSigningIn && styles.buttonDisabled]}
-            onPress={handleGoogleSignIn}
-            disabled={isSigningIn}
-          >
-            {isSigningIn ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <View style={styles.googleIconContainer}>
-                  <Text style={styles.googleIcon}>G</Text>
-                </View>
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+          <View style={styles.authSection}>
+            {authMode === 'initial' && renderInitialView()}
+            {authMode === 'login' && renderLoginView()}
+            {authMode === 'register' && renderRegisterView()}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -66,70 +213,114 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#1a1a1a',
   },
-  content: {
+  keyboardView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
+  },
+  headerCard: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 20,
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   title: {
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 60,
+    color: '#ffffff',
     textAlign: 'center',
   },
   authSection: {
     width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
+    flex: 1,
   },
-  subtitle: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 32,
-    textAlign: 'center',
+  buttonContainer: {
+    gap: 16,
   },
-  googleButton: {
-    flexDirection: 'row',
+  pillButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 30,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4285F4',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    width: '100%',
-    shadowColor: '#000',
+    shadowColor: '#007AFF',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  pillButtonSecondary: {
+    backgroundColor: '#34C759',
+    shadowColor: '#34C759',
+  },
+  pillButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  formContainer: {
+    gap: 16,
+  },
+  input: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  actionButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#007AFF',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
-  googleIconContainer: {
-    width: 24,
-    height: 24,
-    backgroundColor: '#fff',
-    borderRadius: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  googleIcon: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4285F4',
-  },
-  googleButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  actionButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: '600',
+  },
+  backButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

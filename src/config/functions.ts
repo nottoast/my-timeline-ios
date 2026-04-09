@@ -1,10 +1,10 @@
 import { httpsCallable } from 'firebase/functions';
 import { getFunctions } from 'firebase/functions';
 import app from './firebase';
-import { CreateUserRequest, CreateUserResponse } from '@/types';
+import { CreateUserRequest, CreateUserResponse, CreateTripRequest, CreateTripResponse } from '@/types';
 
-// Initialize Firebase Functions
-const functions = getFunctions(app);
+// Initialize Firebase Functions with Europe region
+const functions = getFunctions(app, 'europe-west1');
 
 /**
  * Call the createUser Firebase Function
@@ -29,6 +29,31 @@ export const createUser = async (
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to create user',
+    };
+  }
+};
+
+/**
+ * Call the createTrip Firebase Function
+ * @param tripData - The trip data
+ * @returns Promise with the response containing trip data
+ */
+export const createTrip = async (
+  tripData: CreateTripRequest
+): Promise<CreateTripResponse> => {
+  try {
+    const createTripFn = httpsCallable<CreateTripRequest, CreateTripResponse>(
+      functions,
+      'createTrip'
+    );
+    
+    const result = await createTripFn(tripData);
+    return result.data;
+  } catch (error) {
+    console.error('Error calling createTrip function:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create trip',
     };
   }
 };

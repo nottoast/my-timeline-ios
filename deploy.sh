@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Navigate to the project directory
-cd /Users/mark/code/stl-web
+cd /Users/mark/code/my-timeline-expo
 
 # Git operations
 echo "Committing changes..."
@@ -12,8 +12,7 @@ echo "Pushing to remote..."
 git push
 
 # Build the project
-echo "Building project..."
-npm run-script build
+npx expo export --platform web
 
 # Deploy to Firebase
 echo "Deploying to Firebase..."

@@ -1,23 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  GoogleAuthProvider, 
-  signInWithCredential, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { createUser } from '@/config/functions';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import Constants from 'expo-constants';
-
-WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -27,12 +23,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: Constants.expoConfig?.extra?.googleIosClientId,
-    androidClientId: Constants.expoConfig?.extra?.googleAndroidClientId,
-    webClientId: Constants.expoConfig?.extra?.googleWebClientId,
-  });
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
@@ -41,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If user just signed in, create/get user in Firestore
       if (firebaseUser) {
         try {
-          const username = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
+          const username = firebaseUser.email?.split('@')[0] || 'User';
           const email = firebaseUser.email || '';
           
           const response = await createUser(username, email);
@@ -49,10 +39,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (response.success) {
             console.log('User created/retrieved:', response.user);
           } else {
-            console.error('Failed to create user:', response.message);
+            console.warn('Failed to create user in Firestore:', response.message);
+            // Continue anyway - user is authenticated
           }
-        } catch (error) {
-          console.error('Error creating user in Firestore:', error);
+        } catch (error: any) {
+          // If functions aren't deployed or there's a network issue, just log and continue
+          console.warn('Could not call createUser function:', error?.code || error?.message || error);
+          console.log('User is still authenticated, continuing without Firestore user doc');
         }
       }
     });
@@ -60,19 +53,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential);
-    }
-  }, [response]);
-
-  const signInWithGoogle = async () => {
+  const signInWithEmail = async (email: string, password: string) => {
     try {
-      await promptAsync();
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      console.error('Error signing in with Google:', error);
+      console.error('Error signing in:', error);
+      throw error;
+    }
+  };
+
+  const registerWithEmail = async (email: string, password: string) => {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('Error registering:', error);
       throw error;
     }
   };
@@ -87,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithEmail, registerWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

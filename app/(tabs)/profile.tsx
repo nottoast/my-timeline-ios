@@ -8,33 +8,23 @@ import {
   Alert,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const router = useRouter();
 
   const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    try {
+      console.log('Sign out initiated');
+      await signOut();
+      console.log('Sign out complete');
+      // Force navigation back to root
+      router.replace('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
   };
 
   return (
@@ -58,7 +48,11 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.signOutButton}
-          onPress={handleSignOut}
+          onPress={() => {
+            console.log('Button pressed!');
+            handleSignOut();
+          }}
+          activeOpacity={0.7}
         >
           <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
@@ -70,7 +64,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#1a1a1a',
   },
   content: {
     flex: 1,
@@ -85,7 +79,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#4285F4',
+    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -99,12 +93,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1a1a1a',
+    color: '#ffffff',
     marginBottom: 4,
   },
   email: {
     fontSize: 16,
-    color: '#666',
+    color: '#cccccc',
   },
   signOutButton: {
     backgroundColor: '#ff3b30',

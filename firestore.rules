@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection
+    match /users/{userId} {
+      // Anyone can read user profiles
+      allow read: if true;
+      
+      // Only authenticated users can create/update their own profile
+      allow create, update: if request.auth != null 
+                            && request.auth.token.email == request.resource.data.email;
+      
+      // Only the user can delete their own profile
+      allow delete: if request.auth != null 
+                    && request.auth.uid == userId;
+    }
+    
+    // Trips collection (for future use)
+    match /trips/{tripId} {
+      // Anyone can read public trips
+      allow read: if resource.data.isPublic == true;
+      
+      // Only authenticated users can read their own trips
+      allow read: if request.auth != null 
+                  && request.auth.uid == resource.data.userId;
+      
+      // Only authenticated users can create trips
+      allow create: if request.auth != null 
+                    && request.auth.uid == request.resource.data.userId;
+      
+      // Only trip owner can update/delete
+      allow update, delete: if request.auth != null 
+                            && request.auth.uid == resource.data.userId;
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
