@@ -219,12 +219,23 @@ export default function TripDetailsScreen() {
     
     try {
       const tripRef = doc(db, 'trips', id);
+
+      // Compute Schengen visa status from selected countries
+      const fromCountry = countries.find(c => c.id === fromCountryId);
+      const toCountry = countries.find(c => c.id === toCountryId);
+      let tripVisaStatus: string | null = null;
+      if (fromCountry && toCountry) {
+        if (!fromCountry.isSchengen && toCountry.isSchengen) tripVisaStatus = 'ENTERED_SCHENGEN';
+        else if (fromCountry.isSchengen && !toCountry.isSchengen) tripVisaStatus = 'LEFT_SCHENGEN';
+      }
+
       const updateData: any = {
         tripDate: startDate.toISOString(),
         fromCountryId,
         toCountryId,
-        fromCountryName: countries.find(c => c.id === fromCountryId)?.name || '',
-        toCountryName: countries.find(c => c.id === toCountryId)?.name || '',
+        fromCountryName: fromCountry?.name || '',
+        toCountryName: toCountry?.name || '',
+        tripVisaStatus: tripVisaStatus ?? null,
       };
 
       // Only update name for parent trips

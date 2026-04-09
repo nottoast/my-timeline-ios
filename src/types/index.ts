@@ -27,7 +27,10 @@ export interface Country {
   id: string;
   name: string;
   code: string;
+  isSchengen?: boolean;
 }
+
+export type TripVisaStatus = 'ENTERED_SCHENGEN' | 'LEFT_SCHENGEN';
 
 export interface Trip {
   id: string;
@@ -40,6 +43,7 @@ export interface Trip {
   toCountryId: string;
   toCountryName: string;
   parentTripId?: string; // Set on CHILD trip, references the PARENT trip
+  tripVisaStatus?: TripVisaStatus; // Set when crossing Schengen border
   createdAt: string;
 }
 

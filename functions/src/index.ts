@@ -157,6 +157,18 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
 
       const fromCountryName = (fromCountryDoc.data() as any).name;
       const toCountryName = (toCountryDoc.data() as any).name;
+      const fromCountryIsSchengen = !!(fromCountryDoc.data() as any).isSchengen;
+      const toCountryIsSchengen = !!(toCountryDoc.data() as any).isSchengen;
+
+      // Determine Schengen visa status
+      const getVisaStatus = (fromSchengen: boolean, toSchengen: boolean): string | null => {
+        if (!fromSchengen && toSchengen) return 'ENTERED_SCHENGEN';
+        if (fromSchengen && !toSchengen) return 'LEFT_SCHENGEN';
+        return null;
+      };
+
+      const outboundVisaStatus = getVisaStatus(fromCountryIsSchengen, toCountryIsSchengen);
+      const returnVisaStatus = getVisaStatus(toCountryIsSchengen, fromCountryIsSchengen);
 
       const userId = request.auth.uid;
       const now = admin.firestore.Timestamp.now();
@@ -195,7 +207,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
 
         // Create the CHILD trip (outbound)
         const childTripRef = db.collection('trips').doc();
-        const childTripData = {
+        const childTripData: any = {
           id: childTripRef.id,
           userId,
           tripType: 'CHILD',
@@ -207,6 +219,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           parentTripId,
           createdAt: now,
         };
+        if (outboundVisaStatus) childTripData.tripVisaStatus = outboundVisaStatus;
 
         await childTripRef.set(childTripData);
 
@@ -221,6 +234,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           toCountryName,
           parentTripId,
           createdAt: now.toDate().toISOString(),
+          ...(outboundVisaStatus && { tripVisaStatus: outboundVisaStatus as any }),
         };
 
         // If round trip, create the return trip
@@ -231,7 +245,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           const endDateTimestamp = admin.firestore.Timestamp.fromDate(endDateObj);
 
           const returnTripRef = db.collection('trips').doc();
-          const returnTripData = {
+          const returnTripData: any = {
             id: returnTripRef.id,
             userId,
             tripType: 'CHILD',
@@ -243,6 +257,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
             parentTripId,
             createdAt: now,
           };
+          if (returnVisaStatus) returnTripData.tripVisaStatus = returnVisaStatus;
 
           await returnTripRef.set(returnTripData);
 
@@ -257,6 +272,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
             toCountryName: fromCountryName,  // Reversed
             parentTripId,
             createdAt: now.toDate().toISOString(),
+            ...(returnVisaStatus && { tripVisaStatus: returnVisaStatus as any }),
           };
         }
 
@@ -285,7 +301,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
 
       // Create the PARENT trip
       const parentTripRef = db.collection('trips').doc();
-      const parentTripData = {
+      const parentTripData: any = {
         id: parentTripRef.id,
         userId,
         tripType: 'PARENT',
@@ -297,6 +313,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         toCountryName,
         createdAt: now,
       };
+      if (outboundVisaStatus) parentTripData.tripVisaStatus = outboundVisaStatus;
 
       await parentTripRef.set(parentTripData);
 
@@ -312,6 +329,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         toCountryId,
         toCountryName,
         createdAt: now.toDate().toISOString(),
+        ...(outboundVisaStatus && { tripVisaStatus: outboundVisaStatus as any }),
       };
 
       let returnTrip: Trip | undefined;
@@ -319,7 +337,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
       // If round trip, create the CHILD trip with reversed countries
       if (isRoundTrip && endDateTimestamp) {
         const childTripRef = db.collection('trips').doc();
-        const childTripData = {
+        const childTripData: any = {
           id: childTripRef.id,
           userId,
           tripType: 'CHILD',
@@ -331,6 +349,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           parentTripId: parentTrip.id,
           createdAt: now,
         };
+        if (returnVisaStatus) childTripData.tripVisaStatus = returnVisaStatus;
 
         await childTripRef.set(childTripData);
 
@@ -345,6 +364,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           toCountryName: fromCountryName,  // Reversed
           parentTripId: parentTrip.id,
           createdAt: now.toDate().toISOString(),
+          ...(returnVisaStatus && { tripVisaStatus: returnVisaStatus as any }),
         };
       }
 
