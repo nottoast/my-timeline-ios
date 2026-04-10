@@ -243,24 +243,30 @@ export default function ViewTripsScreen() {
     return country ? country.name : 'Unknown';
   };
 
-  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean, isOnlyChild: boolean, totalChildren: number) => (
-    <TouchableOpacity
-      key={child.id}
-      style={styles.childTripContainer}
-      onPress={() => router.push(`/trip/${child.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.timelineColumn}>
-        <View style={[
-          styles.childTimelineLine,
-          totalChildren > 1 ? {
-            top: -50,
-            bottom: isLast ? 0 : -50
-          } : {}
-        ]} />
-        <View style={styles.childTimelineCircle} />
+  const isTripInFuture = (tripDate: string) => {
+    return new Date(tripDate) > new Date();
+  };
+
+  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean, isOnlyChild: boolean, totalChildren: number) => {
+    const isInFuture = isTripInFuture(child.tripDate);
+    return (
+      <TouchableOpacity
+        key={child.id}
+        style={styles.childTripContainer}
+        onPress={() => router.push(`/trip/${child.id}`)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.timelineColumn}>
+          <View style={[
+            isInFuture ? styles.childTimelineLineDashed : styles.childTimelineLine,
+            totalChildren > 1 ? {
+              top: -50,
+              bottom: isLast ? 0 : -50
+            } : {}
+          ]} />
+          <View style={styles.childTimelineCircle} />
       </View>
-      <View style={styles.childTripCard}>
+      <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
         <View style={styles.tripRouteContainer}>
           <Text style={styles.routeCountry}>{child.fromCountryName}</Text>
           {child.tripVisaStatus === 'LEFT_SCHENGEN' && (
@@ -275,26 +281,29 @@ export default function ViewTripsScreen() {
         <Text style={styles.childTripDate}>{formatDate(child.tripDate)}</Text>
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
-  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean, totalChildren: number) => (
-    <TouchableOpacity
-      key={`${trip.id}-outbound`}
-      style={styles.childTripContainer}
-      onPress={() => router.push(`/trip/${trip.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.timelineColumn}>
-        <View style={[
-          styles.childTimelineLine,
-          totalChildren > 1 ? {
-            top: 0,
-            bottom: -50
-          } : {}
-        ]} />
-        <View style={styles.childTimelineCircle} />
+  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean, totalChildren: number) => {
+    const isInFuture = isTripInFuture(trip.tripDate);
+    return (
+      <TouchableOpacity
+        key={`${trip.id}-outbound`}
+        style={styles.childTripContainer}
+        onPress={() => router.push(`/trip/${trip.id}`)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.timelineColumn}>
+          <View style={[
+            isInFuture ? styles.childTimelineLineDashed : styles.childTimelineLine,
+            totalChildren > 1 ? {
+              top: 0,
+              bottom: -50
+            } : {}
+          ]} />
+          <View style={styles.childTimelineCircle} />
       </View>
-      <View style={styles.childTripCard}>
+      <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
         <View style={styles.tripRouteContainer}>
           <Text style={styles.routeCountry}>{trip.fromCountryName}</Text>
           {trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
@@ -309,13 +318,15 @@ export default function ViewTripsScreen() {
         <Text style={styles.childTripDate}>{formatDate(trip.tripDate)}</Text>
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   const renderTimelineItem = (item: TimelineItem, index: number) => {
     const isLast = index === timelineItems.length - 1;
     const isFirst = index === 0;
     const hasChildren = item.children.length > 0;
     const totalChildren = 1 + item.children.length; // 1 outbound + actual children
+    const isInFuture = isTripInFuture(item.trip.tripDate);
     
     // Calculate the height needed to extend the line through all child trips
     // Each child trip is approximately 90px (50px minHeight card + 16px container padding + 24px buffer)
@@ -332,7 +343,7 @@ export default function ViewTripsScreen() {
         >
           <View style={styles.timelineColumn}>
             <View style={[
-              styles.timelineLine,
+              isInFuture ? styles.timelineLineDashed : styles.timelineLine,
               { 
                 top: 0,
                 bottom: -lineExtension
@@ -340,7 +351,7 @@ export default function ViewTripsScreen() {
             ]} />
             <View style={styles.timelineCircle} />
           </View>
-          <View style={styles.tripCard}>
+          <View style={isInFuture ? styles.tripCardFuture : styles.tripCard}>
             <Text style={styles.tripName}>{item.trip.name}</Text>
             <Text style={styles.tripDate}>{formatParentDate(item.trip.tripDate)}</Text>
           </View>
@@ -541,12 +552,30 @@ const styles = StyleSheet.create({
     width: 2,
     backgroundColor: '#007AFF',
   },
+  timelineLineDashed: {
+    position: 'absolute',
+    top: -100,
+    bottom: -100,
+    width: 2,
+    borderLeftWidth: 2,
+    borderLeftColor: '#007AFF',
+    borderStyle: 'dashed',
+  },
   childTimelineLine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 2,
     backgroundColor: '#666',
+  },
+  childTimelineLineDashed: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    borderLeftWidth: 2,
+    borderLeftColor: '#666',
+    borderStyle: 'dashed',
   },
   timelineCircle: {
     width: 16,
@@ -575,6 +604,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  tripCardFuture: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    padding: 16,
+    marginLeft: 8,
+    borderWidth: 2,
+    borderColor: '#666',
+    borderStyle: 'dashed',
+    minHeight: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   tripName: {
     fontSize: 16,
     fontWeight: '600',
@@ -594,6 +637,20 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     borderWidth: 1,
     borderColor: '#2a2a2a',
+    minHeight: 50,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  childTripCardFuture: {
+    flex: 1,
+    backgroundColor: '#242424',
+    borderRadius: 10,
+    padding: 12,
+    marginLeft: 4,
+    borderWidth: 2,
+    borderColor: '#666',
+    borderStyle: 'dashed',
     minHeight: 50,
     flexDirection: 'row',
     justifyContent: 'space-between',
