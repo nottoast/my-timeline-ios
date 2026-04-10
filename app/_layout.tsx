@@ -53,7 +53,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <CountriesProvider>
-        <View style={{ flex: 1, paddingHorizontal: horizontalPadding }}>
+        <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a' }}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="view-trips" />

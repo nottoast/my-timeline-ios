@@ -67,6 +67,7 @@ export default function ProfileScreen() {
         Alert.alert('Success', 'Profile updated successfully!');
         if (response.user) {
           setUserData(response.user);
+          setCountryOfResidenceId(response.user.countryOfResidenceId || '');
         }
       } else {
         Alert.alert('Error', response.message || 'Failed to update profile');
