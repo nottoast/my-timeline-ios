@@ -256,7 +256,7 @@ export default function ViewTripsScreen() {
       >
         <View style={styles.timelineColumn}>
           <View style={[
-            isInFuture ? styles.childTimelineLineDashed : styles.childTimelineLine,
+            styles.childTimelineLine,
             totalChildren > 1 ? {
               top: -50,
               bottom: isLast ? 0 : -50
@@ -293,7 +293,7 @@ export default function ViewTripsScreen() {
       >
         <View style={styles.timelineColumn}>
           <View style={[
-            isInFuture ? styles.childTimelineLineDashed : styles.childTimelineLine,
+            styles.childTimelineLine,
             totalChildren > 1 ? {
               top: 0,
               bottom: -50
@@ -341,7 +341,7 @@ export default function ViewTripsScreen() {
         >
           <View style={styles.timelineColumn}>
             <View style={[
-              isInFuture ? styles.timelineLineDashed : styles.timelineLine,
+              styles.timelineLine,
               { 
                 top: 0,
                 bottom: -lineExtension
@@ -533,30 +533,12 @@ const styles = StyleSheet.create({
     width: 2,
     backgroundColor: '#007AFF',
   },
-  timelineLineDashed: {
-    position: 'absolute',
-    top: -100,
-    bottom: -100,
-    width: 2,
-    borderLeftWidth: 2,
-    borderLeftColor: '#007AFF',
-    borderStyle: 'dashed',
-  },
   childTimelineLine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 2,
     backgroundColor: '#666',
-  },
-  childTimelineLineDashed: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 2,
-    borderLeftWidth: 2,
-    borderLeftColor: '#666',
-    borderStyle: 'dashed',
   },
   timelineCircle: {
     width: 16,
