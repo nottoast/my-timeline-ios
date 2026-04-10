@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { Country } from '@/types';
 
 type AuthMode = 'initial' | 'login' | 'register';
 
@@ -22,6 +27,37 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [loadingCountries, setLoadingCountries] = useState(true);
+
+  // Fetch countries on mount
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const countriesRef = collection(db, 'countries');
+        const querySnapshot = await getDocs(countriesRef);
+        
+        const fetchedCountries: Country[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedCountries.push({
+            id: doc.id,
+            ...doc.data(),
+          } as Country);
+        });
+        
+        fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
+        setCountries(fetchedCountries);
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+      } finally {
+        setLoadingCountries(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -53,7 +89,7 @@ export default function LoginScreen() {
 
     try {
       setIsProcessing(true);
-      await registerWithEmail(email, password);
+      await registerWithEmail(email, password, countryOfResidenceId || undefined);
       // User will be automatically redirected after registration via AuthContext
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -61,6 +97,11 @@ export default function LoginScreen() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const getCountryName = (countryId: string) => {
+    const country = countries.find(c => c.id === countryId);
+    return country ? country.name : 'Select Country (Optional)';
   };
 
   const renderInitialView = () => (
@@ -153,6 +194,16 @@ export default function LoginScreen() {
       />
       
       <TouchableOpacity
+        style={styles.countryButton}
+        onPress={() => setShowCountryPicker(true)}
+        disabled={loadingCountries || isProcessing}
+      >
+        <Text style={[styles.countryButtonText, !countryOfResidenceId && styles.placeholderText]}>
+          {loadingCountries ? 'Loading...' : getCountryName(countryOfResidenceId)}
+        </Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity
         style={[styles.actionButton, isProcessing && styles.buttonDisabled]}
         onPress={handleRegister}
         disabled={isProcessing}
@@ -170,6 +221,7 @@ export default function LoginScreen() {
           setAuthMode('initial');
           setEmail('');
           setPassword('');
+          setCountryOfResidenceId('');
         }}
       >
         <Text style={styles.backButtonText}>Back</Text>
@@ -196,7 +248,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.headerCard}>
-            <Text style={styles.title}>Your Trips</Text>
+            <Text style={styles.title}>YourTrips</Text>
           </View>
           
           <View style={styles.authSection}>
@@ -206,6 +258,40 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Country Picker Modal */}
+      <Modal
+        visible={showCountryPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country of Residence</Text>
+              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={countries}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.countryItem}
+                  onPress={() => {
+                    setCountryOfResidenceId(item.id);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryItemText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -322,5 +408,57 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     fontWeight: '500',
+  },
+  countryButton: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  countryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  placeholderText: {
+    color: '#666',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: '#007AFF',
+    fontWeight: '300',
+  },
+  countryItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  countryItemText: {
+    fontSize: 16,
+    color: '#ffffff',
   },
 });

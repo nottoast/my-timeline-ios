@@ -6,6 +6,7 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  countryOfResidenceId?: string;
   registeredAt: string; // ISO timestamp
   lastLoggedInAt: string; // ISO timestamp
 }
@@ -13,9 +14,20 @@ export interface User {
 export interface CreateUserRequest {
   username: string;
   email: string;
+  countryOfResidenceId?: string;
 }
 
 export interface CreateUserResponse {
+  success: boolean;
+  user?: User;
+  message?: string;
+}
+
+export interface UpdateUserRequest {
+  countryOfResidenceId?: string;
+}
+
+export interface UpdateUserResponse {
   success: boolean;
   user?: User;
   message?: string;

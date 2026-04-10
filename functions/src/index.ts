@@ -4,6 +4,8 @@ import {
   User, 
   CreateUserRequest, 
   CreateUserResponse,
+  UpdateUserRequest,
+  UpdateUserResponse,
   Trip,
   CreateTripRequest,
   CreateTripResponse,
@@ -29,7 +31,7 @@ export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>
   async (request): Promise<CreateUserResponse> => {
     const data = request.data;
     try {
-      const { username, email } = data;
+      const { username, email, countryOfResidenceId } = data;
 
       // Validate input
       if (!username || !email) {
@@ -77,6 +79,7 @@ export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>
         email,
         registeredAt: now.toDate().toISOString(),
         lastLoggedInAt: now.toDate().toISOString(),
+        ...(countryOfResidenceId && { countryOfResidenceId }),
       };
 
       await userRef.set(newUser);
@@ -88,6 +91,74 @@ export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>
       };
     } catch (error) {
       console.error('Error creating user:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+);
+
+/**
+ * HTTP Cloud Function (v2) to update a user
+ * POST /updateUser
+ * Body: { countryOfResidenceId?: string }
+ */
+export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>(
+  { 
+    region: 'europe-west1',
+    cors: true, // Enable CORS for all origins
+  },
+  async (request): Promise<UpdateUserResponse> => {
+    const data = request.data;
+    try {
+      // Ensure user is authenticated
+      if (!request.auth) {
+        return {
+          success: false,
+          message: 'Authentication required',
+        };
+      }
+
+      const userId = request.auth.uid;
+      const { countryOfResidenceId } = data;
+
+      // Find user by Firebase auth UID (stored as userId in our DB)
+      const userSnapshot = await db
+        .collection('users')
+        .where('id', '==', userId)
+        .limit(1)
+        .get();
+
+      if (userSnapshot.empty) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      const userDoc = userSnapshot.docs[0];
+      const userRef = db.collection('users').doc(userDoc.id);
+
+      // Update user with provided fields
+      const updateData: any = {};
+      if (countryOfResidenceId !== undefined) {
+        updateData.countryOfResidenceId = countryOfResidenceId;
+      }
+
+      await userRef.update(updateData);
+
+      // Get updated user data
+      const updatedUserDoc = await userRef.get();
+      const userData = updatedUserDoc.data() as User;
+
+      return {
+        success: true,
+        user: userData,
+        message: 'User updated successfully',
+      };
+    } catch (error) {
+      console.error('Error updating user:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error occurred',

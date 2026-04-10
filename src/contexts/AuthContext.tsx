@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { 
   signOut as firebaseSignOut,
@@ -14,7 +14,7 @@ interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (email: string, password: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string, countryOfResidenceId?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -23,6 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const pendingCountryOfResidence = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -35,7 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const username = firebaseUser.email?.split('@')[0] || 'User';
           const email = firebaseUser.email || '';
           
-          const response = await createUser(username, email);
+          // Get country from ref if it was set during registration
+          const countryId = pendingCountryOfResidence.current;
+          pendingCountryOfResidence.current = undefined; // Clear it after use
+          
+          const response = await createUser(username, email, countryId);
           
           if (response.success) {
             console.log('User created/retrieved:', response.user);
@@ -63,10 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const registerWithEmail = async (email: string, password: string) => {
+  const registerWithEmail = async (email: string, password: string, countryOfResidenceId?: string) => {
     try {
+      // Store country ID in ref so it can be used in onAuthStateChanged
+      pendingCountryOfResidence.current = countryOfResidenceId;
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (error) {
+      // Clear the pending country if registration fails
+      pendingCountryOfResidence.current = undefined;
       console.error('Error registering:', error);
       throw error;
     }

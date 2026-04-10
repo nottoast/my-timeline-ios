@@ -1,6 +1,6 @@
-# Quick Start Guide - Your Trips
+# Quick Start Guide - YourTrips
 
-Your Your Trips app with Google authentication is ready! Follow these steps to run it on your phone.
+Your YourTrips app with Google authentication is ready! Follow these steps to run it on your phone.
 
 ## ✅ What's Been Set Up
 
