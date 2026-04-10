@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
@@ -28,6 +29,7 @@ interface TimelineItem {
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { width } = useWindowDimensions();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
@@ -317,7 +319,7 @@ export default function ViewTripsScreen() {
     
     // Calculate the height needed to extend the line through all child trips
     // Each child trip is approximately 90px (50px minHeight card + 16px container padding + 24px buffer)
-    const childTripHeight = 100;
+    const childTripHeight = 105;
     const lineExtension = isLast ? 0 : totalChildren * childTripHeight;
 
     return (
@@ -361,14 +363,29 @@ export default function ViewTripsScreen() {
     );
   };
 
+  // Calculate responsive margins for desktop/web
+  const getHorizontalMargin = () => {
+    if (width > 800) {
+      return width * 0.1; // 10% margin on each side
+    }
+    return 0;
+  };
+
+  const contentWrapperStyle = {
+    flex: 1,
+    marginHorizontal: getHorizontalMargin(),
+  };
+
   // Show loading while auth is initializing or while trips are loading
   if (authLoading || loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Loading...</Text>
+        <View style={contentWrapperStyle}>
+          <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -376,6 +393,7 @@ export default function ViewTripsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={contentWrapperStyle}>
         <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
 
       {timelineItems.length === 0 ? (
@@ -416,14 +434,15 @@ export default function ViewTripsScreen() {
         </ScrollView>
       )}
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/add-trip')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+        {/* Floating Action Button */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/add-trip')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -497,15 +516,15 @@ const styles = StyleSheet.create({
   },
   parentTripContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   childTripContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    paddingLeft: 60,
+    paddingLeft: 38,
     alignItems: 'center',
   },
   timelineColumn: {
@@ -530,21 +549,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#666',
   },
   timelineCircle: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: '#007AFF',
-    borderWidth: 3,
-    borderColor: '#1a1a1a',
     zIndex: 1,
   },
   childTimelineCircle: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#666',
-    borderWidth: 2,
-    borderColor: '#1a1a1a',
     zIndex: 1,
   },
   tripCard: {
@@ -552,7 +567,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     padding: 16,
-    marginLeft: 16,
+    marginLeft: 8,
     borderWidth: 1,
     borderColor: '#333',
     minHeight: 60,
@@ -576,7 +591,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#242424',
     borderRadius: 10,
     padding: 12,
-    marginLeft: 16,
+    marginLeft: 4,
     borderWidth: 1,
     borderColor: '#2a2a2a',
     minHeight: 50,
