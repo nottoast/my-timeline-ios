@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
@@ -29,7 +28,6 @@ interface TimelineItem {
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { width } = useWindowDimensions();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
@@ -374,29 +372,14 @@ export default function ViewTripsScreen() {
     );
   };
 
-  // Calculate responsive margins for desktop/web
-  const getHorizontalMargin = () => {
-    if (width > 800) {
-      return width * 0.1; // 10% margin on each side
-    }
-    return 0;
-  };
-
-  const contentWrapperStyle = {
-    flex: 1,
-    marginHorizontal: getHorizontalMargin(),
-  };
-
   // Show loading while auth is initializing or while trips are loading
   if (authLoading || loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={contentWrapperStyle}>
-          <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#fff" />
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
+        <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -404,8 +387,7 @@ export default function ViewTripsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={contentWrapperStyle}>
-        <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
+      <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
 
       {timelineItems.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -445,15 +427,14 @@ export default function ViewTripsScreen() {
         </ScrollView>
       )}
 
-        {/* Floating Action Button */}
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/add-trip')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={28} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/add-trip')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
