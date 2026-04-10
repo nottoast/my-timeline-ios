@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { 
   signOut as firebaseSignOut,
   onAuthStateChanged,
@@ -82,10 +83,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ user, loading, signInWithEmail, registerWithEmail, signOut }}>
-      {children}
+      <View style={styles.container}>
+        {children}
+      </View>
     </AuthContext.Provider>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+  },
+});
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

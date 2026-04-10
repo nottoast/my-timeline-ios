@@ -287,36 +287,34 @@ export default function AddTripScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Start Date</Text>
               {Platform.OS === 'web' ? (
-                <View style={{ width: '100%', maxWidth: '100%' }}>
-                  <input
-                    type="date"
-                    value={startDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const selectedDate = new Date(e.target.value);
-                      if (!isNaN(selectedDate.getTime())) {
-                        setStartDate(selectedDate);
-                        // If round trip and start date changes, update end date to one week later
-                        if (isRoundTrip) {
-                          const oneWeekLater = new Date(selectedDate);
-                          oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-                          setEndDate(oneWeekLater);
-                        }
+                <input
+                  type="date"
+                  value={startDate.toISOString().split('T')[0]}
+                  onChange={(e) => {
+                    const selectedDate = new Date(e.target.value);
+                    if (!isNaN(selectedDate.getTime())) {
+                      setStartDate(selectedDate);
+                      // If round trip and start date changes, update end date to one week later
+                      if (isRoundTrip) {
+                        const oneWeekLater = new Date(selectedDate);
+                        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                        setEndDate(oneWeekLater);
                       }
-                    }}
-                    style={{
-                      backgroundColor: '#2a2a2a',
-                      borderRadius: 12,
-                      padding: 16,
-                      fontSize: 16,
-                      color: '#ffffff',
-                      border: '1px solid #3a3a3a',
-                      width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      colorScheme: 'dark',
-                    }}
-                  />
-                </View>
+                    }
+                  }}
+                  style={{
+                    display: 'block',
+                    backgroundColor: '#2a2a2a',
+                    borderRadius: 12,
+                    padding: 16,
+                    fontSize: 16,
+                    color: '#ffffff',
+                    border: '1px solid #3a3a3a',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    colorScheme: 'dark',
+                  }}
+                />
               ) : (
                 <TouchableOpacity
                   style={styles.dateButton}
@@ -357,31 +355,29 @@ export default function AddTripScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
                 {Platform.OS === 'web' ? (
-                  <View style={{ width: '100%', maxWidth: '100%' }}>
-                    <input
-                      type="date"
-                      value={endDate.toISOString().split('T')[0]}
-                      min={startDate.toISOString().split('T')[0]}
-                      onChange={(e) => {
-                        const selectedDate = new Date(e.target.value);
-                        if (!isNaN(selectedDate.getTime())) {
-                          setEndDate(selectedDate);
-                        }
-                      }}
-                      style={{
-                        backgroundColor: '#2a2a2a',
-                        borderRadius: 12,
-                        padding: 16,
-                        fontSize: 16,
-                        color: '#ffffff',
-                        border: '1px solid #3a3a3a',
-                        width: '100%',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                        colorScheme: 'dark',
-                      }}
-                    />
-                  </View>
+                  <input
+                    type="date"
+                    value={endDate.toISOString().split('T')[0]}
+                    min={startDate.toISOString().split('T')[0]}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      if (!isNaN(selectedDate.getTime())) {
+                        setEndDate(selectedDate);
+                      }
+                    }}
+                    style={{
+                      display: 'block',
+                      backgroundColor: '#2a2a2a',
+                      borderRadius: 12,
+                      padding: 16,
+                      fontSize: 16,
+                      color: '#ffffff',
+                      border: '1px solid #3a3a3a',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      colorScheme: 'dark',
+                    }}
+                  />
                 ) : (
                   <TouchableOpacity
                     style={styles.dateButton}

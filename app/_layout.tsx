@@ -4,12 +4,15 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const { width } = useWindowDimensions();
+  const horizontalPadding = width > 800 ? Math.round(width * 0.1) : 0;
+
   const [loaded, error] = useFonts({
     ...Ionicons.font,
   });
@@ -48,13 +51,15 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="view-trips" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="add-trip" />
-        <Stack.Screen name="trip/[id]" />
-      </Stack>
+      <View style={{ flex: 1, paddingHorizontal: horizontalPadding }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="view-trips" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="add-trip" />
+          <Stack.Screen name="trip/[id]" />
+        </Stack>
+      </View>
     </AuthProvider>
   );
 }

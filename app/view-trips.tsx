@@ -238,7 +238,7 @@ export default function ViewTripsScreen() {
 
   const getCountryName = (countryId: string) => {
     const country = countries.get(countryId);
-    return country ? country.name : 'Unknown';
+    return country ? (country.shortName || country.name) : 'Unknown';
   };
 
   const isTripInFuture = (tripDate: string) => {
@@ -266,12 +266,12 @@ export default function ViewTripsScreen() {
       </View>
       <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
         <View style={styles.tripRouteContainer}>
-          <Text style={styles.routeCountry}>{child.fromCountryName}</Text>
+          <Text style={styles.routeCountry}>{getCountryName(child.fromCountryId)}</Text>
           {child.tripVisaStatus === 'LEFT_SCHENGEN' && (
             <EUPill prefix="←" style={styles.pillInline} />
           )}
           <Text style={styles.routeArrow}> → </Text>
-          <Text style={styles.routeCountry}>{child.toCountryName}</Text>
+          <Text style={styles.routeCountry}>{getCountryName(child.toCountryId)}</Text>
           {child.tripVisaStatus === 'ENTERED_SCHENGEN' && (
             <EUPill prefix="→" style={styles.pillInline} />
           )}
@@ -303,12 +303,12 @@ export default function ViewTripsScreen() {
       </View>
       <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
         <View style={styles.tripRouteContainer}>
-          <Text style={styles.routeCountry}>{trip.fromCountryName}</Text>
+          <Text style={styles.routeCountry}>{getCountryName(trip.fromCountryId)}</Text>
           {trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
             <EUPill prefix="←" style={styles.pillInline} />
           )}
           <Text style={styles.routeArrow}> → </Text>
-          <Text style={styles.routeCountry}>{trip.toCountryName}</Text>
+          <Text style={styles.routeCountry}>{getCountryName(trip.toCountryId)}</Text>
           {trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
             <EUPill prefix="→" style={styles.pillInline} />
           )}

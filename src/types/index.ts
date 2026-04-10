@@ -26,6 +26,7 @@ export type TripType = 'PARENT' | 'CHILD';
 export interface Country {
   id: string;
   name: string;
+  shortName?: string;
   code: string;
   isSchengen?: boolean;
 }
