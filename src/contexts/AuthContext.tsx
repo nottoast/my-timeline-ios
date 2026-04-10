@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword
 } from 'firebase/auth';
 import { auth } from '@/config/firebase';
-import { createUser } from '@/config/functions';
+import { updateUser } from '@/config/functions';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const countryId = pendingCountryOfResidence.current;
           pendingCountryOfResidence.current = undefined; // Clear it after use
           
-          const response = await createUser(username, email, countryId);
+          const response = await updateUser(username, email, countryId);
           
           if (response.success) {
             console.log('User created/retrieved:', response.user);
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error: any) {
           // If functions aren't deployed or there's a network issue, just log and continue
-          console.warn('Could not call createUser function:', error?.code || error?.message || error);
+          console.warn('Could not call updateUser function:', error?.code || error?.message || error);
           console.log('User is still authenticated, continuing without Firestore user doc');
         }
       }

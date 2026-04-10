@@ -2,8 +2,6 @@ import * as admin from 'firebase-admin';
 import { onCall } from 'firebase-functions/v2/https';
 import { 
   User, 
-  CreateUserRequest, 
-  CreateUserResponse,
   UpdateUserRequest,
   UpdateUserResponse,
   Trip,
@@ -19,90 +17,9 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
- * HTTP Cloud Function (v2) to create or retrieve a user
- * POST /createUser
- * Body: { username: string, email: string }
- */
-export const createUser = onCall<CreateUserRequest, Promise<CreateUserResponse>>(
-  { 
-    region: 'europe-west1',
-    cors: true, // Enable CORS for all origins
-  },
-  async (request): Promise<CreateUserResponse> => {
-    const data = request.data;
-    try {
-      const { username, email, countryOfResidenceId } = data;
-
-      // Validate input
-      if (!username || !email) {
-        return {
-          success: false,
-          message: 'Username and email are required',
-        };
-      }
-
-      // Check if user already exists by email
-      const existingUserSnapshot = await db
-        .collection('users')
-        .where('email', '==', email)
-        .limit(1)
-        .get();
-
-      const now = admin.firestore.Timestamp.now();
-
-      // If user exists, update lastLoggedInAt and return user
-      if (!existingUserSnapshot.empty) {
-        const existingUserDoc = existingUserSnapshot.docs[0];
-        const existingUserRef = db.collection('users').doc(existingUserDoc.id);
-        
-        // Update lastLoggedInAt
-        await existingUserRef.update({
-          lastLoggedInAt: now,
-        });
-        
-        // Get updated user data
-        const updatedUserDoc = await existingUserRef.get();
-        const userData = updatedUserDoc.data() as User;
-        
-        return {
-          success: true,
-          user: userData,
-          message: 'User login updated',
-        };
-      }
-
-      // Create new user
-      const userRef = db.collection('users').doc();
-      const newUser: User = {
-        id: userRef.id,
-        username,
-        email,
-        registeredAt: now.toDate().toISOString(),
-        lastLoggedInAt: now.toDate().toISOString(),
-        ...(countryOfResidenceId && { countryOfResidenceId }),
-      };
-
-      await userRef.set(newUser);
-
-      return {
-        success: true,
-        user: newUser,
-        message: 'User created successfully',
-      };
-    } catch (error) {
-      console.error('Error creating user:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
-      };
-    }
-  }
-);
-
-/**
- * HTTP Cloud Function (v2) to update a user
+ * HTTP Cloud Function (v2) to update or create a user
  * POST /updateUser
- * Body: { countryOfResidenceId?: string }
+ * Body: { username?: string, email?: string, countryOfResidenceId?: string }
  */
 export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>(
   { 
@@ -112,7 +29,67 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
   async (request): Promise<UpdateUserResponse> => {
     const data = request.data;
     try {
-      // Ensure user is authenticated
+      const { username, email, countryOfResidenceId } = data;
+      
+      // If username and email are provided, this is a create/login operation
+      if (username && email) {
+        // Check if user already exists by email
+        const existingUserSnapshot = await db
+          .collection('users')
+          .where('email', '==', email)
+          .limit(1)
+          .get();
+
+        const now = admin.firestore.Timestamp.now();
+
+        // If user exists, update lastLoggedInAt and optionally countryOfResidenceId
+        if (!existingUserSnapshot.empty) {
+          const existingUserDoc = existingUserSnapshot.docs[0];
+          const existingUserRef = db.collection('users').doc(existingUserDoc.id);
+          
+          const updateData: any = {
+            lastLoggedInAt: now,
+          };
+          
+          // Update country if provided during login
+          if (countryOfResidenceId !== undefined) {
+            updateData.countryOfResidenceId = countryOfResidenceId;
+          }
+          
+          await existingUserRef.update(updateData);
+          
+          // Get updated user data
+          const updatedUserDoc = await existingUserRef.get();
+          const userData = updatedUserDoc.data() as User;
+          
+          return {
+            success: true,
+            user: userData,
+            message: 'User login updated',
+          };
+        }
+
+        // Create new user
+        const userRef = db.collection('users').doc();
+        const newUser: User = {
+          id: userRef.id,
+          username,
+          email,
+          registeredAt: now.toDate().toISOString(),
+          lastLoggedInAt: now.toDate().toISOString(),
+          ...(countryOfResidenceId && { countryOfResidenceId }),
+        };
+
+        await userRef.set(newUser);
+
+        return {
+          success: true,
+          user: newUser,
+          message: 'User created successfully',
+        };
+      }
+      
+      // Otherwise, this is an update operation - requires authentication
       if (!request.auth) {
         return {
           success: false,
@@ -120,13 +97,19 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
         };
       }
 
-      const userId = request.auth.uid;
-      const { countryOfResidenceId } = data;
+      const userEmail = request.auth.token.email;
 
-      // Find user by Firebase auth UID (stored as userId in our DB)
+      if (!userEmail) {
+        return {
+          success: false,
+          message: 'User email not found in authentication token',
+        };
+      }
+
+      // Find user by email
       const userSnapshot = await db
         .collection('users')
-        .where('id', '==', userId)
+        .where('email', '==', userEmail)
         .limit(1)
         .get();
 

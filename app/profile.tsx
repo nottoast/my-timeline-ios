@@ -11,50 +11,23 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCountries } from '@/contexts/CountriesContext';
 import { useRouter } from 'expo-router';
 import CustomHeader from '@/components/CustomHeader';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { Country, User as AppUser } from '@/types';
+import { User as AppUser } from '@/types';
 import { updateUser } from '@/config/functions';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { countries, loading: loadingCountries, getCountryFullName } = useCountries();
   const router = useRouter();
-  const [countries, setCountries] = useState<Country[]>([]);
   const [userData, setUserData] = useState<AppUser | null>(null);
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
-  const [loadingCountries, setLoadingCountries] = useState(true);
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // Fetch countries on mount
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const countriesRef = collection(db, 'countries');
-        const querySnapshot = await getDocs(countriesRef);
-        
-        const fetchedCountries: Country[] = [];
-        querySnapshot.forEach((doc) => {
-          fetchedCountries.push({
-            id: doc.id,
-            ...doc.data(),
-          } as Country);
-        });
-        
-        fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
-        setCountries(fetchedCountries);
-      } catch (error) {
-        console.error('Error fetching countries:', error);
-      } finally {
-        setLoadingCountries(false);
-      }
-    };
-
-    fetchCountries();
-  }, []);
 
   // Fetch user data from Firestore
   useEffect(() => {
@@ -88,7 +61,7 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const response = await updateUser(countryOfResidenceId || undefined);
+      const response = await updateUser(undefined, undefined, countryOfResidenceId || undefined);
       
       if (response.success) {
         Alert.alert('Success', 'Profile updated successfully!');
@@ -106,11 +79,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const getCountryName = (countryId: string) => {
-    const country = countries.find(c => c.id === countryId);
-    return country ? country.name : 'Not set';
-  };
-
   const handleSignOut = async () => {
     try {
       console.log('Sign out initiated');
@@ -126,7 +94,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Profile" showBackButton={true} />
+      <CustomHeader title="Profile" showBackButton={true} onBackPress={() => router.push('/view-trips')} />
       
       <View style={styles.content}>
         <View style={styles.profileSection}>
@@ -157,7 +125,7 @@ export default function ProfileScreen() {
                 disabled={loadingCountries}
               >
                 <Text style={[styles.countryButtonText, !countryOfResidenceId && styles.placeholderText]}>
-                  {loadingCountries ? 'Loading...' : getCountryName(countryOfResidenceId)}
+                  {loadingCountries ? 'Loading...' : (countryOfResidenceId ? getCountryFullName(countryOfResidenceId) : 'Not set')}
                 </Text>
               </TouchableOpacity>
             </View>

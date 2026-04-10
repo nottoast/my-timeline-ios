@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { CountriesProvider } from '@/contexts/CountriesContext';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
@@ -51,15 +52,17 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <View style={{ flex: 1, paddingHorizontal: horizontalPadding }}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="view-trips" />
-          <Stack.Screen name="profile" />
-          <Stack.Screen name="add-trip" />
-          <Stack.Screen name="trip/[id]" />
-        </Stack>
-      </View>
+      <CountriesProvider>
+        <View style={{ flex: 1, paddingHorizontal: horizontalPadding }}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="view-trips" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="add-trip" />
+            <Stack.Screen name="trip/[id]" />
+          </Stack>
+        </View>
+      </CountriesProvider>
     </AuthProvider>
   );
 }

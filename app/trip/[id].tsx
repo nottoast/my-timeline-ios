@@ -17,16 +17,18 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { Country, Trip } from '@/types';
+import { Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
 import { Ionicons } from '@expo/vector-icons';
+import { useCountries } from '@/contexts/CountriesContext';
 
 export default function TripDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { countries, loading: loadingCountries } = useCountries();
   
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,7 +42,6 @@ export default function TripDetailsScreen() {
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   
   // Country selection state
-  const [countries, setCountries] = useState<Country[]>([]);
   const [fromCountryId, setFromCountryId] = useState('');
   const [toCountryId, setToCountryId] = useState('');
   const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
@@ -54,20 +55,10 @@ export default function TripDetailsScreen() {
   const [parentTripId, setParentTripId] = useState('');
   const [tripType, setTripType] = useState<'PARENT' | 'CHILD'>('PARENT');
 
-  // Load trip data and countries
+  // Load trip data
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load countries
-        const countriesRef = collection(db, 'countries');
-        const countriesSnapshot = await getDocs(countriesRef);
-        const fetchedCountries: Country[] = [];
-        countriesSnapshot.forEach((doc) => {
-          fetchedCountries.push({ id: doc.id, ...doc.data() } as Country);
-        });
-        fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
-        setCountries(fetchedCountries);
-
         // Load trip data
         const tripRef = doc(db, 'trips', id);
         const tripDoc = await getDoc(tripRef);
@@ -292,10 +283,19 @@ export default function TripDetailsScreen() {
     });
   };
 
+  const handleBackPress = () => {
+    // Parent trips should always go back to timeline, not to any child trip
+    if (tripType === 'PARENT') {
+      router.push('/view-trips');
+    } else {
+      router.back();
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <CustomHeader title="Trip Details" showBackButton={true} />
+        <CustomHeader title="Trip Details" showBackButton={true} onBackPress={handleBackPress} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Loading trip...</Text>
@@ -306,7 +306,7 @@ export default function TripDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Trip Details" showBackButton={true} />
+      <CustomHeader title="Trip Details" showBackButton={true} onBackPress={handleBackPress} />
       
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

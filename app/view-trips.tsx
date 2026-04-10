@@ -11,10 +11,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Trip, Country } from '@/types';
+import { useCountries } from '@/contexts/CountriesContext';
+import { Trip } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
 import EUPill from '@/components/EUPill';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,39 +29,15 @@ interface TimelineItem {
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { getCountryName } = useCountries();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
-  const [countries, setCountries] = useState<Map<string, Country>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [schengenDaysRemaining, setSchengenDaysRemaining] = useState(90);
   const [schengenIsInvalid, setSchengenIsInvalid] = useState(false);
-
-  const fetchCountries = async () => {
-    try {
-      const countriesRef = collection(db, 'countries');
-      const querySnapshot = await getDocs(countriesRef);
-      const countriesMap = new Map<string, Country>();
-      
-      querySnapshot.forEach((doc) => {
-        countriesMap.set(doc.id, {
-          id: doc.id,
-          ...doc.data(),
-        } as Country);
-      });
-      
-      setCountries(countriesMap);
-    } catch (error) {
-      console.error('Error fetching countries:', error);
-    }
-  };
-
-  // Fetch countries once on mount
-  useEffect(() => {
-    fetchCountries();
-  }, []);
 
   // Set up real-time listener for trips
   useEffect(() => {
@@ -234,11 +211,6 @@ export default function ViewTripsScreen() {
       month: 'long',
       year: 'numeric',
     });
-  };
-
-  const getCountryName = (countryId: string) => {
-    const country = countries.get(countryId);
-    return country ? (country.shortName || country.name) : 'Unknown';
   };
 
   const isTripInFuture = (tripDate: string) => {
@@ -589,7 +561,7 @@ const styles = StyleSheet.create({
   },
   tripDate: {
     fontSize: 14,
-    color: '#999',
+    color: '#ddd',
     marginLeft: 12,
   },
   childTripCard: {
@@ -645,7 +617,7 @@ const styles = StyleSheet.create({
   },
   childTripDate: {
     fontSize: 12,
-    color: '#666',
+    color: '#bbb',
     marginLeft: 12,
   },
   fab: {

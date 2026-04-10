@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,49 +15,19 @@ import {
   FlatList,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { Country } from '@/types';
+import { useCountries } from '@/contexts/CountriesContext';
 
 type AuthMode = 'initial' | 'login' | 'register';
 
 export default function LoginScreen() {
   const { signInWithEmail, registerWithEmail, loading } = useAuth();
+  const { countries, loading: loadingCountries } = useCountries();
   const [authMode, setAuthMode] = useState<AuthMode>('initial');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
-  const [countries, setCountries] = useState<Country[]>([]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
-  const [loadingCountries, setLoadingCountries] = useState(true);
-
-  // Fetch countries on mount
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const countriesRef = collection(db, 'countries');
-        const querySnapshot = await getDocs(countriesRef);
-        
-        const fetchedCountries: Country[] = [];
-        querySnapshot.forEach((doc) => {
-          fetchedCountries.push({
-            id: doc.id,
-            ...doc.data(),
-          } as Country);
-        });
-        
-        fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
-        setCountries(fetchedCountries);
-      } catch (error) {
-        console.error('Error fetching countries:', error);
-      } finally {
-        setLoadingCountries(false);
-      }
-    };
-
-    fetchCountries();
-  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {

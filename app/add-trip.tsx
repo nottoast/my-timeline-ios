@@ -17,14 +17,15 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { createTrip } from '@/config/functions';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { Country } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
+import { useCountries } from '@/contexts/CountriesContext';
 
 export default function AddTripScreen() {
   const router = useRouter();
   const { parentTripId } = useLocalSearchParams<{ parentTripId?: string }>();
+  const { countries, loading: loadingCountries } = useCountries();
   const [tripName, setTripName] = useState('');
   const [parentTripName, setParentTripName] = useState('');
   const [isChildTrip, setIsChildTrip] = useState(false);
@@ -36,47 +37,10 @@ export default function AddTripScreen() {
   const [isSaving, setIsSaving] = useState(false);
   
   // Country selection state
-  const [countries, setCountries] = useState<Country[]>([]);
   const [fromCountryId, setFromCountryId] = useState('');
   const [toCountryId, setToCountryId] = useState('');
   const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
   const [showToCountryPicker, setShowToCountryPicker] = useState(false);
-  const [loadingCountries, setLoadingCountries] = useState(true);
-
-  // Fetch countries from Firestore
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        console.log('Fetching countries...');
-        const countriesRef = collection(db, 'countries');
-        const querySnapshot = await getDocs(countriesRef);
-        
-        console.log('Countries query complete. Docs found:', querySnapshot.size);
-        
-        const fetchedCountries: Country[] = [];
-        querySnapshot.forEach((doc) => {
-          console.log('Country doc:', doc.id, doc.data());
-          fetchedCountries.push({
-            id: doc.id,
-            ...doc.data(),
-          } as Country);
-        });
-        
-        // Sort client-side instead
-        fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
-        
-        console.log('Total countries loaded:', fetchedCountries.length);
-        setCountries(fetchedCountries);
-      } catch (error) {
-        console.error('Error fetching countries:', error);
-        Alert.alert('Error', 'Failed to load countries: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      } finally {
-        setLoadingCountries(false);
-      }
-    };
-
-    fetchCountries();
-  }, []);
 
   // Fetch parent trip if parentTripId is provided
   useEffect(() => {
@@ -198,8 +162,12 @@ export default function AddTripScreen() {
       
       if (response.success && response.trip) {
         Alert.alert('Success', 'Trip created successfully!');
-        // Navigate to timeline after creating any trip
-        router.push('/view-trips');
+        // Navigate to parent trip if this is a child trip, otherwise to timeline
+        if (isChildTrip && parentTripId) {
+          router.push(`/trip/${parentTripId}`);
+        } else {
+          router.push('/view-trips');
+        }
       } else {
         Alert.alert('Error', response.message || 'Failed to create trip');
       }
@@ -304,12 +272,12 @@ export default function AddTripScreen() {
                   }}
                   style={{
                     display: 'block',
-                    backgroundColor: '#2a2a2a',
+                    backgroundColor: '#3a3a3a',
                     borderRadius: 12,
                     padding: 16,
                     fontSize: 16,
                     color: '#ffffff',
-                    border: '1px solid #3a3a3a',
+                    border: '1px solid #4a4a4a',
                     width: '100%',
                     boxSizing: 'border-box',
                     colorScheme: 'dark',
@@ -367,12 +335,12 @@ export default function AddTripScreen() {
                     }}
                     style={{
                       display: 'block',
-                      backgroundColor: '#2a2a2a',
+                      backgroundColor: '#3a3a3a',
                       borderRadius: 12,
                       padding: 16,
                       fontSize: 16,
                       color: '#ffffff',
-                      border: '1px solid #3a3a3a',
+                      border: '1px solid #4a4a4a',
                       width: '100%',
                       boxSizing: 'border-box',
                       colorScheme: 'dark',
@@ -530,12 +498,12 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   dateButton: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: '#3a3a3a',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderWidth: 1,
-    borderColor: '#3a3a3a',
+    borderColor: '#4a4a4a',
   },
   dateButtonText: {
     fontSize: 16,

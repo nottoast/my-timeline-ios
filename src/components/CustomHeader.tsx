@@ -8,11 +8,12 @@ import EUPill from '@/components/EUPill';
 interface CustomHeaderProps {
   title: string;
   showBackButton?: boolean;
+  onBackPress?: () => void;
   schengenDaysRemaining?: number;
   schengenIsInvalid?: boolean;
 }
 
-export default function CustomHeader({ title, showBackButton = false, schengenDaysRemaining, schengenIsInvalid = false }: CustomHeaderProps) {
+export default function CustomHeader({ title, showBackButton = false, onBackPress, schengenDaysRemaining, schengenIsInvalid = false }: CustomHeaderProps) {
   const router = useRouter();
   const { user } = useAuth();
 
@@ -21,7 +22,11 @@ export default function CustomHeader({ title, showBackButton = false, schengenDa
   };
 
   const handleBackPress = () => {
-    router.back();
+    if (onBackPress) {
+      onBackPress();
+    } else {
+      router.back();
+    }
   };
 
   return (

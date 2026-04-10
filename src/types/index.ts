@@ -11,19 +11,9 @@ export interface User {
   lastLoggedInAt: string; // ISO timestamp
 }
 
-export interface CreateUserRequest {
-  username: string;
-  email: string;
-  countryOfResidenceId?: string;
-}
-
-export interface CreateUserResponse {
-  success: boolean;
-  user?: User;
-  message?: string;
-}
-
 export interface UpdateUserRequest {
+  username?: string;
+  email?: string;
   countryOfResidenceId?: string;
 }
 
