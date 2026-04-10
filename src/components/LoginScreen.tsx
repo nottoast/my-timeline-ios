@@ -196,7 +196,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.headerCard}>
-            <Text style={styles.title}>My Travel Guru</Text>
+            <Text style={styles.title}>Your Trips</Text>
           </View>
           
           <View style={styles.authSection}>

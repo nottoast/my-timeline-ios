@@ -27,7 +27,7 @@ interface TimelineItem {
 
 export default function ViewTripsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
@@ -64,6 +64,11 @@ export default function ViewTripsScreen() {
 
   // Set up real-time listener for trips
   useEffect(() => {
+    // Wait for auth to finish loading before checking user
+    if (authLoading) {
+      return;
+    }
+
     if (!user) {
       console.log('No user found, skipping listener');
       setError('No user logged in');
@@ -177,7 +182,7 @@ export default function ViewTripsScreen() {
       unsubscribeParent();
       unsubscribeChild();
     };
-  }, [user]);
+  }, [user, authLoading]);
 
   // Organize trips into timeline items whenever trips or childTrips change
   useEffect(() => {
@@ -312,7 +317,7 @@ export default function ViewTripsScreen() {
     
     // Calculate the height needed to extend the line through all child trips
     // Each child trip is approximately 90px (50px minHeight card + 16px container padding + 24px buffer)
-    const childTripHeight = 90;
+    const childTripHeight = 100;
     const lineExtension = isLast ? 0 : totalChildren * childTripHeight;
 
     return (
@@ -356,13 +361,14 @@ export default function ViewTripsScreen() {
     );
   };
 
-  if (loading) {
+  // Show loading while auth is initializing or while trips are loading
+  if (authLoading || loading) {
     return (
       <SafeAreaView style={styles.container}>
         <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Loading trips...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );

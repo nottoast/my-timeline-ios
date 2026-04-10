@@ -1,6 +1,6 @@
-# Quick Start Guide - My Travel Guru
+# Quick Start Guide - Your Trips
 
-Your My Travel Guru app with Google authentication is ready! Follow these steps to run it on your phone.
+Your Your Trips app with Google authentication is ready! Follow these steps to run it on your phone.
 
 ## ✅ What's Been Set Up
 

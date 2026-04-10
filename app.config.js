@@ -1,6 +1,6 @@
 module.exports = {
   expo: {
-    name: "My Travel Guru",
+    name: "Your Trips",
     slug: "my-travel-guru",
     version: "1.0.0",
     orientation: "portrait",

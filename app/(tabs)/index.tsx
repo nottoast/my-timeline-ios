@@ -30,7 +30,7 @@ export default function HomeScreen() {
           <View style={styles.hamburgerLine} />
         </TouchableOpacity>
 
-        <Text style={styles.title}>Welcome to My Travel Guru!</Text>
+        <Text style={styles.title}>Welcome to Your Trips!</Text>
         <Text style={styles.subtitle}>
           Hello, {user?.email || user?.displayName || 'User'}
         </Text>
