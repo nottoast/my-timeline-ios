@@ -23,7 +23,6 @@ export const CountriesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        console.log('Fetching countries from Firestore...');
         const countriesRef = collection(db, 'countries');
         const querySnapshot = await getDocs(countriesRef);
         
@@ -42,17 +41,11 @@ export const CountriesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Sort countries alphabetically by name
         fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
         
-        console.log(`✅ Successfully loaded ${fetchedCountries.length} countries`);
         setCountries(fetchedCountries);
         setCountriesMap(map);
         setError(null);
       } catch (err) {
-        console.error('❌ Error fetching countries:', err);
-        console.error('Error details:', {
-          name: err instanceof Error ? err.name : 'Unknown',
-          message: err instanceof Error ? err.message : String(err),
-          code: (err as any)?.code,
-        });
+        console.error('Error loading countries:', err);
         setError(err instanceof Error ? err.message : 'Failed to load countries');
       } finally {
         setLoading(false);

@@ -22,6 +22,7 @@ import { db } from '@/config/firebase';
 import { Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
+import DatePicker from '@/components/DatePicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
 
@@ -368,35 +369,20 @@ export default function TripDetailsScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Date</Text>
               {Platform.OS === 'web' ? (
-                <View style={{ width: '100%', maxWidth: '100%' }}>
-                  <input
-                    type="date"
-                    value={startDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const selectedDate = new Date(e.target.value);
-                      if (!isNaN(selectedDate.getTime())) {
-                        setStartDate(selectedDate);
-                        if (isRoundTrip) {
-                          const oneWeekLater = new Date(selectedDate);
-                          oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-                          setEndDate(oneWeekLater);
-                        }
+                <DatePicker
+                  value={startDate.toISOString().split('T')[0]}
+                  onChange={(value) => {
+                    const selectedDate = new Date(value);
+                    if (!isNaN(selectedDate.getTime())) {
+                      setStartDate(selectedDate);
+                      if (isRoundTrip) {
+                        const oneWeekLater = new Date(selectedDate);
+                        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                        setEndDate(oneWeekLater);
                       }
-                    }}
-                    style={{
-                      backgroundColor: '#2a2a2a',
-                      borderRadius: 12,
-                      padding: 16,
-                      fontSize: 16,
-                      color: '#ffffff',
-                      border: '1px solid #3a3a3a',
-                      width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      colorScheme: 'dark',
-                    }}
-                  />
-                </View>
+                    }
+                  }}
+                />
               ) : (
                 <TouchableOpacity
                   style={styles.dateButton}
