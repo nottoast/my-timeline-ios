@@ -148,6 +148,11 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     zIndex: 1000,
+    ...Platform.select({
+      web: {
+        isolation: 'auto',
+      },
+    }),
   },
   input: {
     backgroundColor: '#2a2a2a',
@@ -178,7 +183,7 @@ const styles = StyleSheet.create({
     borderColor: '#3a3a3a',
     maxHeight: 250,
     overflow: 'hidden',
-    zIndex: 1002,
+    zIndex: 9999,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -191,6 +196,8 @@ const styles = StyleSheet.create({
       },
       web: {
         boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.4)',
+        // @ts-ignore - web-only CSS property
+        willChange: 'transform',
       },
     }),
   },

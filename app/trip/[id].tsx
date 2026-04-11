@@ -27,7 +27,7 @@ import { useCountries } from '@/contexts/CountriesContext';
 export default function TripDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { countries, loading: loadingCountries, getCountryName } = useCountries();
+  const { countries, loading: loadingCountries, getCountryFullName, getCountryName } = useCountries();
   
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -305,7 +305,7 @@ export default function TripDetailsScreen() {
                 onSelect={setFromCountryId}
                 placeholder="Start typing country name..."
                 disabled={loadingCountries}
-                getCountryName={getCountryName}
+                getCountryName={getCountryFullName}
               />
             </View>
 
@@ -317,7 +317,7 @@ export default function TripDetailsScreen() {
                 onSelect={setToCountryId}
                 placeholder="Start typing country name..."
                 disabled={loadingCountries}
-                getCountryName={getCountryName}
+                getCountryName={getCountryFullName}
               />
             </View>
 
@@ -399,7 +399,7 @@ export default function TripDetailsScreen() {
                           {formatDate(new Date(childTrip.tripDate))}
                         </Text>
                         <Text style={styles.childTripRoute}>
-                          {childTrip.fromCountryName} → {childTrip.toCountryName}
+                          {getCountryName(childTrip.fromCountryId)} → {getCountryName(childTrip.toCountryId)}
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color="#666" />
@@ -487,6 +487,13 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 20,
+    ...Platform.select({
+      web: {
+        // @ts-ignore - web-only CSS property
+        overflow: 'visible',
+        zIndex: 1,
+      },
+    }),
   },
   label: {
     fontSize: 16,

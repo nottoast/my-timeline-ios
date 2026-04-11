@@ -24,7 +24,7 @@ import { useCountries } from '@/contexts/CountriesContext';
 export default function AddTripScreen() {
   const router = useRouter();
   const { parentTripId } = useLocalSearchParams<{ parentTripId?: string }>();
-  const { countries, loading: loadingCountries, getCountryName } = useCountries();
+  const { countries, loading: loadingCountries, getCountryFullName } = useCountries();
   const [tripName, setTripName] = useState('');
   const [parentTripName, setParentTripName] = useState('');
   const [isChildTrip, setIsChildTrip] = useState(false);
@@ -188,7 +188,7 @@ export default function AddTripScreen() {
                 onSelect={setFromCountryId}
                 placeholder="Start typing country name..."
                 disabled={loadingCountries}
-                getCountryName={getCountryName}
+                getCountryName={getCountryFullName}
               />
             </View>
 
@@ -200,7 +200,7 @@ export default function AddTripScreen() {
                 onSelect={setToCountryId}
                 placeholder="Start typing country name..."
                 disabled={loadingCountries}
-                getCountryName={getCountryName}
+                getCountryName={getCountryFullName}
               />
             </View>
 
@@ -281,6 +281,13 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     gap: 8,
+    ...Platform.select({
+      web: {
+        // @ts-ignore - web-only CSS property
+        overflow: 'visible',
+        zIndex: 1,
+      },
+    }),
   },
   label: {
     fontSize: 16,
