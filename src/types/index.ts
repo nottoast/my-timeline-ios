@@ -33,6 +33,7 @@ export interface Country {
   shortName?: string;
   code: string;
   isSchengen?: boolean;
+  flagEmoji?: string;
 }
 
 export type TripVisaStatus = 'ENTERED_SCHENGEN' | 'LEFT_SCHENGEN';

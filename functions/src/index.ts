@@ -10,6 +10,7 @@ import {
   DeleteTripRequest,
   DeleteTripResponse,
 } from '../../src/types';
+import { getCountryById } from '../../src/utils/countries';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -216,21 +217,21 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         };
       }
 
-      // Fetch country names
-      const fromCountryDoc = await db.collection('countries').doc(fromCountryId).get();
-      const toCountryDoc = await db.collection('countries').doc(toCountryId).get();
+      // Get country data from utility functions
+      const fromCountry = getCountryById(fromCountryId);
+      const toCountry = getCountryById(toCountryId);
 
-      if (!fromCountryDoc.exists || !toCountryDoc.exists) {
+      if (!fromCountry || !toCountry) {
         return {
           success: false,
           message: 'Invalid country IDs',
         };
       }
 
-      const fromCountryName = (fromCountryDoc.data() as any).name;
-      const toCountryName = (toCountryDoc.data() as any).name;
-      const fromCountryIsSchengen = !!(fromCountryDoc.data() as any).isSchengen;
-      const toCountryIsSchengen = !!(toCountryDoc.data() as any).isSchengen;
+      const fromCountryName = fromCountry.name;
+      const toCountryName = toCountry.name;
+      const fromCountryIsSchengen = !!fromCountry.isSchengen;
+      const toCountryIsSchengen = !!toCountry.isSchengen;
 
       // Determine Schengen visa status
       const getVisaStatus = (fromSchengen: boolean, toSchengen: boolean): string | null => {

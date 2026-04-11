@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import React, { createContext, useContext, useMemo } from 'react';
 import { Country } from '@/types';
+import { getAllCountries } from '@/utils/countries';
 
 interface CountriesContextType {
   countries: Country[];
@@ -15,45 +14,20 @@ interface CountriesContextType {
 const CountriesContext = createContext<CountriesContextType | undefined>(undefined);
 
 export const CountriesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [countriesMap, setCountriesMap] = useState<Map<string, Country>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const countriesRef = collection(db, 'countries');
-        const querySnapshot = await getDocs(countriesRef);
-        
-        const fetchedCountries: Country[] = [];
-        const map = new Map<string, Country>();
-        
-        querySnapshot.forEach((doc) => {
-          const country = {
-            id: doc.id,
-            ...doc.data(),
-          } as Country;
-          fetchedCountries.push(country);
-          map.set(doc.id, country);
-        });
-        
-        // Sort countries alphabetically by name
-        fetchedCountries.sort((a, b) => a.name.localeCompare(b.name));
-        
-        setCountries(fetchedCountries);
-        setCountriesMap(map);
-        setError(null);
-      } catch (err) {
-        console.error('Error loading countries:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load countries');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCountries();
+  // Get all countries from the utility function (no async needed)
+  const countries = useMemo(() => {
+    const allCountries = getAllCountries();
+    // Sort countries alphabetically by name
+    return allCountries.sort((a, b) => a.name.localeCompare(b.name));
   }, []);
+
+  const countriesMap = useMemo(() => {
+    const map = new Map<string, Country>();
+    countries.forEach(country => {
+      map.set(country.id, country);
+    });
+    return map;
+  }, [countries]);
 
   const getCountryName = (countryId: string): string => {
     const country = countriesMap.get(countryId);
@@ -66,7 +40,14 @@ export const CountriesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   return (
-    <CountriesContext.Provider value={{ countries, countriesMap, loading, error, getCountryName, getCountryFullName }}>
+    <CountriesContext.Provider value={{ 
+      countries, 
+      countriesMap, 
+      loading: false, // No async loading needed
+      error: null, 
+      getCountryName, 
+      getCountryFullName 
+    }}>
       {children}
     </CountriesContext.Provider>
   );
