@@ -42,6 +42,7 @@ export default function CountryAutocomplete({
   const [filteredCountries, setFilteredCountries] = useState<Country[]>([]);
   const containerRef = useRef<View>(null);
   const [dropdownMetrics, setDropdownMetrics] = useState<{ top: number; left: number; width: number } | null>(null);
+  const justSelectedRef = useRef(false);
 
   // Update search text when value changes from outside (initial value or reset)
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function CountryAutocomplete({
   }, [searchText, countries, isFocused]);
 
   const handleSelect = (country: Country) => {
+    justSelectedRef.current = true;
     setSearchText(country.name);
     setFilteredCountries([]);
     setIsFocused(false);
@@ -100,6 +102,11 @@ export default function CountryAutocomplete({
   const handleBlur = () => {
     // Delay to allow touch on dropdown to register
     setTimeout(() => {
+      // If handleSelect already ran, skip the reset to avoid clearing the field
+      if (justSelectedRef.current) {
+        justSelectedRef.current = false;
+        return;
+      }
       setIsFocused(false);
       // Restore the selected country name if user didn't select anything
       if (value) {
