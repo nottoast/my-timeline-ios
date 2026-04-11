@@ -31,9 +31,9 @@ service cloud.firestore {
                             && request.auth.uid == resource.data.userId;
     }
     
-    // Countries collection - read-only for authenticated users
+    // Countries collection - publicly readable reference data
     match /countries/{countryId} {
-      allow read: if request.auth != null;
+      allow read: if true; // Public read access for reference data
       allow write: if false; // Only admins via Firebase console
     }
     
