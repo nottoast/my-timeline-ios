@@ -61,7 +61,9 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
+      console.log('Saving profile with countryOfResidenceId:', countryOfResidenceId);
       const response = await updateUser(undefined, undefined, countryOfResidenceId || undefined);
+      console.log('Update response:', response);
       
       if (response.success) {
         Alert.alert('Success', 'Profile updated successfully!');

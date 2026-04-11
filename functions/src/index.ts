@@ -129,11 +129,19 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
         updateData.countryOfResidenceId = countryOfResidenceId;
       }
 
-      await userRef.update(updateData);
+      console.log('Updating user with data:', updateData);
+      console.log('countryOfResidenceId received:', countryOfResidenceId);
+
+      // Only update if there's data to update
+      if (Object.keys(updateData).length > 0) {
+        await userRef.update(updateData);
+      }
 
       // Get updated user data
       const updatedUserDoc = await userRef.get();
       const userData = updatedUserDoc.data() as User;
+
+      console.log('Updated user data:', userData);
 
       return {
         success: true,
