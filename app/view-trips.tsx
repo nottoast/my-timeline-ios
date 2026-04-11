@@ -11,11 +11,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
-import { Trip } from '@/types';
+import { Trip, User as AppUser } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
 import EUPill from '@/components/EUPill';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +38,8 @@ export default function ViewTripsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [schengenDaysRemaining, setSchengenDaysRemaining] = useState(90);
   const [schengenIsInvalid, setSchengenIsInvalid] = useState(false);
+  const [userData, setUserData] = useState<AppUser | null>(null);
+  const [enableSchengenCalculations, setEnableSchengenCalculations] = useState(false);
 
   // Set up real-time listener for trips
   useEffect(() => {
@@ -179,13 +181,39 @@ export default function ViewTripsScreen() {
     setTimelineItems(items);
   }, [trips, childTrips]);
 
-  // Recompute Schengen days whenever trips change
+  // Fetch user data to get enableSchengenCalculations setting
   useEffect(() => {
-    const allTrips = [...trips, ...childTrips];
-    const { daysRemaining, isInvalid } = computeSchengenDaysRemaining(allTrips);
-    setSchengenDaysRemaining(daysRemaining);
-    setSchengenIsInvalid(isInvalid);
-  }, [trips, childTrips]);
+    const fetchUserData = async () => {
+      if (!user) return;
+      
+      try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('email', '==', user.email), limit(1));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          const data = userDoc.data() as AppUser;
+          setUserData(data);
+          setEnableSchengenCalculations(data.enableSchengenCalculations || false);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
+
+  // Recompute Schengen days whenever trips change, but only if enabled
+  useEffect(() => {
+    if (enableSchengenCalculations) {
+      const allTrips = [...trips, ...childTrips];
+      const { daysRemaining, isInvalid } = computeSchengenDaysRemaining(allTrips);
+      setSchengenDaysRemaining(daysRemaining);
+      setSchengenIsInvalid(isInvalid);
+    }
+  }, [trips, childTrips, enableSchengenCalculations]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -239,12 +267,12 @@ export default function ViewTripsScreen() {
       <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
         <View style={styles.tripRouteContainer}>
           <Text style={styles.routeCountry}>{getCountryName(child.fromCountryId)}</Text>
-          {child.tripVisaStatus === 'LEFT_SCHENGEN' && (
+          {enableSchengenCalculations && child.tripVisaStatus === 'LEFT_SCHENGEN' && (
             <EUPill prefix="←" style={styles.pillInline} />
           )}
           <Text style={styles.routeArrow}> → </Text>
           <Text style={styles.routeCountry}>{getCountryName(child.toCountryId)}</Text>
-          {child.tripVisaStatus === 'ENTERED_SCHENGEN' && (
+          {enableSchengenCalculations && child.tripVisaStatus === 'ENTERED_SCHENGEN' && (
             <EUPill prefix="→" style={styles.pillInline} />
           )}
         </View>
@@ -276,12 +304,12 @@ export default function ViewTripsScreen() {
       <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
         <View style={styles.tripRouteContainer}>
           <Text style={styles.routeCountry}>{getCountryName(trip.fromCountryId)}</Text>
-          {trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
+          {enableSchengenCalculations && trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
             <EUPill prefix="←" style={styles.pillInline} />
           )}
           <Text style={styles.routeArrow}> → </Text>
           <Text style={styles.routeCountry}>{getCountryName(trip.toCountryId)}</Text>
-          {trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
+          {enableSchengenCalculations && trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
             <EUPill prefix="→" style={styles.pillInline} />
           )}
         </View>
@@ -348,7 +376,11 @@ export default function ViewTripsScreen() {
   if (authLoading || loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
+        <CustomHeader 
+          title="Timeline" 
+          schengenDaysRemaining={enableSchengenCalculations ? schengenDaysRemaining : undefined} 
+          schengenIsInvalid={enableSchengenCalculations ? schengenIsInvalid : undefined} 
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Loading...</Text>
@@ -359,7 +391,11 @@ export default function ViewTripsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="Timeline" schengenDaysRemaining={schengenDaysRemaining} schengenIsInvalid={schengenIsInvalid} />
+      <CustomHeader 
+        title="Timeline" 
+        schengenDaysRemaining={enableSchengenCalculations ? schengenDaysRemaining : undefined} 
+        schengenIsInvalid={enableSchengenCalculations ? schengenIsInvalid : undefined} 
+      />
 
       {timelineItems.length === 0 ? (
         <View style={styles.emptyContainer}>

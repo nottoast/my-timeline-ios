@@ -29,7 +29,7 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
   async (request): Promise<UpdateUserResponse> => {
     const data = request.data;
     try {
-      const { username, email, countryOfResidenceId } = data;
+      const { username, email, countryOfResidenceId, enableSchengenCalculations } = data;
       
       // If username and email are provided, this is a create/login operation
       if (username && email) {
@@ -56,6 +56,11 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
             updateData.countryOfResidenceId = countryOfResidenceId;
           }
           
+          // Update Schengen calculations setting if provided
+          if (enableSchengenCalculations !== undefined) {
+            updateData.enableSchengenCalculations = enableSchengenCalculations;
+          }
+          
           await existingUserRef.update(updateData);
           
           // Get updated user data
@@ -78,6 +83,7 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
           registeredAt: now.toDate().toISOString(),
           lastLoggedInAt: now.toDate().toISOString(),
           ...(countryOfResidenceId && { countryOfResidenceId }),
+          ...(enableSchengenCalculations !== undefined && { enableSchengenCalculations }),
         };
 
         await userRef.set(newUser);
@@ -128,9 +134,13 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
       if (countryOfResidenceId !== undefined) {
         updateData.countryOfResidenceId = countryOfResidenceId;
       }
+      if (enableSchengenCalculations !== undefined) {
+        updateData.enableSchengenCalculations = enableSchengenCalculations;
+      }
 
       console.log('Updating user with data:', updateData);
       console.log('countryOfResidenceId received:', countryOfResidenceId);
+      console.log('enableSchengenCalculations received:', enableSchengenCalculations);
 
       // Only update if there's data to update
       if (Object.keys(updateData).length > 0) {

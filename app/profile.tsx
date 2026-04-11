@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [userData, setUserData] = useState<AppUser | null>(null);
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
+  const [enableSchengenCalculations, setEnableSchengenCalculations] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,6 +49,7 @@ export default function ProfileScreen() {
           const data = userDoc.data() as AppUser;
           setUserData(data);
           setCountryOfResidenceId(data.countryOfResidenceId || '');
+          setEnableSchengenCalculations(data.enableSchengenCalculations || false);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -62,7 +65,13 @@ export default function ProfileScreen() {
     try {
       setSaving(true);
       console.log('Saving profile with countryOfResidenceId:', countryOfResidenceId);
-      const response = await updateUser(undefined, undefined, countryOfResidenceId || undefined);
+      console.log('Saving profile with enableSchengenCalculations:', enableSchengenCalculations);
+      const response = await updateUser(
+        undefined,
+        undefined,
+        countryOfResidenceId || undefined,
+        enableSchengenCalculations
+      );
       console.log('Update response:', response);
       
       if (response.success) {
@@ -70,6 +79,7 @@ export default function ProfileScreen() {
         if (response.user) {
           setUserData(response.user);
           setCountryOfResidenceId(response.user.countryOfResidenceId || '');
+          setEnableSchengenCalculations(response.user.enableSchengenCalculations || false);
         }
       } else {
         Alert.alert('Error', response.message || 'Failed to update profile');
@@ -131,6 +141,21 @@ export default function ProfileScreen() {
                   {loadingCountries ? 'Loading...' : (countryOfResidenceId ? getCountryFullName(countryOfResidenceId) : 'Not set')}
                 </Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={styles.fieldSection}>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleLabelContainer}>
+                  <Text style={styles.fieldLabel}>Enable Schengen Calculations</Text>
+                  <Text style={styles.toggleDescription}>Automatically count Schengen days remaining</Text>
+                </View>
+                <Switch
+                  value={enableSchengenCalculations}
+                  onValueChange={setEnableSchengenCalculations}
+                  trackColor={{ false: '#3a3a3a', true: '#007AFF' }}
+                  thumbColor={enableSchengenCalculations ? '#ffffff' : '#f4f3f4'}
+                />
+              </View>
             </View>
 
             <View style={styles.buttonRow}>
@@ -263,6 +288,20 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: '#666',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleLabelContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleDescription: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 2,
   },
   buttonRow: {
     flexDirection: 'row',

@@ -11,12 +11,14 @@ const functions = getFunctions(app, 'europe-west1');
  * @param username - Optional username for creating a new user
  * @param email - Optional email for creating a new user
  * @param countryOfResidenceId - Optional country of residence ID
+ * @param enableSchengenCalculations - Optional flag to enable/disable Schengen calculations
  * @returns Promise with the response containing user data
  */
 export const updateUser = async (
   username?: string,
   email?: string,
-  countryOfResidenceId?: string
+  countryOfResidenceId?: string,
+  enableSchengenCalculations?: boolean
 ): Promise<UpdateUserResponse> => {
   try {
     const updateUserFn = httpsCallable<UpdateUserRequest, UpdateUserResponse>(
@@ -24,7 +26,7 @@ export const updateUser = async (
       'updateUser'
     );
     
-    const result = await updateUserFn({ username, email, countryOfResidenceId });
+    const result = await updateUserFn({ username, email, countryOfResidenceId, enableSchengenCalculations });
     return result.data;
   } catch (error) {
     console.error('Error calling updateUser function:', error);
