@@ -51,8 +51,8 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
             lastLoggedInAt: now,
           };
           
-          // Update country if provided during login
-          if (countryOfResidenceId !== undefined) {
+          // Update country if provided during login and is a non-empty string
+          if (typeof countryOfResidenceId === 'string' && countryOfResidenceId.trim() !== '') {
             updateData.countryOfResidenceId = countryOfResidenceId;
           }
           
