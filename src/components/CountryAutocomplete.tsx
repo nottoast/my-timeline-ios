@@ -108,10 +108,26 @@ export default function CountryAutocomplete({
         return;
       }
       setIsFocused(false);
-      // Restore the selected country name if user didn't select anything
-      if (value) {
+
+      // Check if the typed text exactly matches a valid country (case-insensitive)
+      const trimmed = searchText.trim();
+      const match = trimmed
+        ? countries.find(
+            c =>
+              c.name.toLowerCase() === trimmed.toLowerCase() ||
+              (c.shortName && c.shortName.toLowerCase() === trimmed.toLowerCase())
+          )
+        : null;
+
+      if (match) {
+        // Accept the typed value as a selection
+        setSearchText(match.name);
+        onSelect(match.id);
+      } else if (value) {
+        // Revert to the previously selected country
         setSearchText(getCountryName(value));
       } else {
+        // No valid country — clear the field
         setSearchText('');
       }
     }, 200);
