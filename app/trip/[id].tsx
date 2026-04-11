@@ -22,7 +22,7 @@ import { db } from '@/config/firebase';
 import { Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
-import DatePicker from '@/components/DatePicker';
+import PaperDatePicker from '@/components/PaperDatePicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
 
@@ -368,22 +368,19 @@ export default function TripDetailsScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Date</Text>
-              {Platform.OS === 'web' ? (
-                <DatePicker
-                  value={startDate.toISOString().split('T')[0]}
-                  onChange={(value) => {
-                    const selectedDate = new Date(value);
-                    if (!isNaN(selectedDate.getTime())) {
-                      setStartDate(selectedDate);
-                      if (isRoundTrip) {
-                        const oneWeekLater = new Date(selectedDate);
-                        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-                        setEndDate(oneWeekLater);
-                      }
-                    }
-                  }}
-                />
-              ) : (
+              <PaperDatePicker
+                value={startDate}
+                onChange={(selectedDate) => {
+                  setStartDate(selectedDate);
+                  if (isRoundTrip) {
+                    const oneWeekLater = new Date(selectedDate);
+                    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                    setEndDate(oneWeekLater);
+                  }
+                }}
+
+              />
+              {Platform.OS !== 'web' && (
                 <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => {
@@ -398,7 +395,7 @@ export default function TripDetailsScreen() {
               )}
             </View>
 
-            {Platform.OS !== 'web' && showStartDatePicker && (
+            {showStartDatePicker && (
               <DateTimePicker
                 value={startDate}
                 mode="date"

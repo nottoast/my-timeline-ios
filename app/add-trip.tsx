@@ -20,7 +20,7 @@ import { createTrip } from '@/config/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import CustomHeader from '@/components/CustomHeader';
-import DatePicker from '@/components/DatePicker';
+import PaperDatePicker from '@/components/PaperDatePicker';
 import { useCountries } from '@/contexts/CountriesContext';
 
 export default function AddTripScreen() {
@@ -255,23 +255,20 @@ export default function AddTripScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Start Date</Text>
-              {Platform.OS === 'web' ? (
-                <DatePicker
-                  value={startDate.toISOString().split('T')[0]}
-                  onChange={(value) => {
-                    const selectedDate = new Date(value);
-                    if (!isNaN(selectedDate.getTime())) {
-                      setStartDate(selectedDate);
-                      // If round trip and start date changes, update end date to one week later
-                      if (isRoundTrip) {
-                        const oneWeekLater = new Date(selectedDate);
-                        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-                        setEndDate(oneWeekLater);
-                      }
-                    }
-                  }}
-                />
-              ) : (
+              <PaperDatePicker
+                value={startDate}
+                onChange={(selectedDate) => {
+                  setStartDate(selectedDate);
+                  // If round trip and start date changes, update end date to one week later
+                  if (isRoundTrip) {
+                    const oneWeekLater = new Date(selectedDate);
+                    oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                    setEndDate(oneWeekLater);
+                  }
+                }}
+
+              />
+              {Platform.OS !== 'web' && (
                 <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => {
@@ -286,7 +283,7 @@ export default function AddTripScreen() {
               )}
             </View>
 
-            {Platform.OS !== 'web' && showStartDatePicker && (
+            {showStartDatePicker && (
               <DateTimePicker
                 value={startDate}
                 mode="date"
@@ -310,18 +307,14 @@ export default function AddTripScreen() {
             {isRoundTrip && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
-                {Platform.OS === 'web' ? (
-                  <DatePicker
-                    value={endDate.toISOString().split('T')[0]}
-                    min={startDate.toISOString().split('T')[0]}
-                    onChange={(value) => {
-                      const selectedDate = new Date(value);
-                      if (!isNaN(selectedDate.getTime())) {
-                        setEndDate(selectedDate);
-                      }
-                    }}
-                  />
-                ) : (
+                <PaperDatePicker
+                  value={endDate}
+                  min={startDate}
+                  onChange={(selectedDate) => {
+                    setEndDate(selectedDate);
+                  }}
+                />
+                {Platform.OS !== 'web' && (
                   <TouchableOpacity
                     style={styles.dateButton}
                     onPress={() => setShowEndDatePicker(true)}
@@ -334,7 +327,7 @@ export default function AddTripScreen() {
               </View>
             )}
 
-            {Platform.OS !== 'web' && isRoundTrip && showEndDatePicker && (
+            {isRoundTrip && showEndDatePicker && (
               <DateTimePicker
                 value={endDate}
                 mode="date"

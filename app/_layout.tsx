@@ -6,9 +6,26 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Platform, View, useWindowDimensions } from 'react-native';
+import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
+import { en, registerTranslation } from 'react-native-paper-dates';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
+
+// Register date picker localization
+registerTranslation('en-GB', en);
+
+// Custom theme with our blue color
+const theme = {
+  ...MD3DarkTheme,
+  colors: {
+    ...MD3DarkTheme.colors,
+    primary: '#007AFF',
+    primaryContainer: '#007AFF',
+    onPrimary: '#ffffff',
+    onPrimaryContainer: '#ffffff',
+  },
+};
 
 export default function RootLayout() {
   const { width } = useWindowDimensions();
@@ -51,18 +68,20 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <CountriesProvider>
-        <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a' }}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="view-trips" />
-            <Stack.Screen name="profile" />
-            <Stack.Screen name="add-trip" />
-            <Stack.Screen name="trip/[id]" />
-          </Stack>
-        </View>
-      </CountriesProvider>
-    </AuthProvider>
+    <PaperProvider theme={theme}>
+      <AuthProvider>
+        <CountriesProvider>
+          <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a' }}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="view-trips" />
+              <Stack.Screen name="profile" />
+              <Stack.Screen name="add-trip" />
+              <Stack.Screen name="trip/[id]" />
+            </Stack>
+          </View>
+        </CountriesProvider>
+      </AuthProvider>
+    </PaperProvider>
   );
 }
