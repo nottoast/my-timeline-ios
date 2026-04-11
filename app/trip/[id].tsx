@@ -11,25 +11,23 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Alert,
-  Modal,
-  FlatList,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
+import CountryAutocomplete from '@/components/CountryAutocomplete';
 import { Ionicons } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
 
 export default function TripDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { countries, loading: loadingCountries } = useCountries();
+  const { countries, loading: loadingCountries, getCountryName } = useCountries();
   
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,14 +37,10 @@ export default function TripDetailsScreen() {
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
   const [toCountryId, setToCountryId] = useState('');
-  const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
-  const [showToCountryPicker, setShowToCountryPicker] = useState(false);
 
   // Child trips state
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
@@ -155,36 +149,6 @@ export default function TripDetailsScreen() {
     loadData();
   }, [id]);
 
-  const handleStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowStartDatePicker(false);
-    }
-    if (event.type === 'dismissed') {
-      setShowStartDatePicker(false);
-    }
-    if (selectedDate) {
-      setStartDate(selectedDate);
-      if (isRoundTrip && selectedDate > endDate) {
-        // Update end date to one week after the new start date
-        const oneWeekLater = new Date(selectedDate);
-        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-        setEndDate(oneWeekLater);
-      }
-    }
-  };
-
-  const handleEndDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowEndDatePicker(false);
-    }
-    if (event.type === 'dismissed') {
-      setShowEndDatePicker(false);
-    }
-    if (selectedDate) {
-      setEndDate(selectedDate);
-    }
-  };
-
   const handleSave = async () => {
     // Only validate trip name for parent trips
     if (!isChildTrip && !tripName.trim()) {
@@ -271,11 +235,6 @@ export default function TripDetailsScreen() {
       });
   };
 
-  const getCountryName = (countryId: string) => {
-    const country = countries.find(c => c.id === countryId);
-    return country ? country.name : 'Select Country';
-  };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -334,36 +293,32 @@ export default function TripDetailsScreen() {
                   placeholderTextColor="#666"
                   value={tripName}
                   onChangeText={setTripName}
-                  onFocus={() => {
-                    setShowStartDatePicker(false);
-                    setShowEndDatePicker(false);
-                  }}
                 />
               )}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>From Country</Text>
-              <TouchableOpacity
-                style={styles.countryButton}
-                onPress={() => setShowFromCountryPicker(true)}
-              >
-                <Text style={[styles.countryButtonText, !fromCountryId && styles.placeholderText]}>
-                  {getCountryName(fromCountryId)}
-                </Text>
-              </TouchableOpacity>
+              <CountryAutocomplete
+                countries={countries}
+                value={fromCountryId}
+                onSelect={setFromCountryId}
+                placeholder="Start typing country name..."
+                disabled={loadingCountries}
+                getCountryName={getCountryName}
+              />
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>To Country</Text>
-              <TouchableOpacity
-                style={styles.countryButton}
-                onPress={() => setShowToCountryPicker(true)}
-              >
-                <Text style={[styles.countryButtonText, !toCountryId && styles.placeholderText]}>
-                  {getCountryName(toCountryId)}
-                </Text>
-              </TouchableOpacity>
+              <CountryAutocomplete
+                countries={countries}
+                value={toCountryId}
+                onSelect={setToCountryId}
+                placeholder="Start typing country name..."
+                disabled={loadingCountries}
+                getCountryName={getCountryName}
+              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -380,29 +335,7 @@ export default function TripDetailsScreen() {
                 }}
 
               />
-              {Platform.OS !== 'web' && (
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => {
-                    setShowStartDatePicker(true);
-                    setShowEndDatePicker(false);
-                  }}
-                >
-                  <Text style={styles.dateButtonText}>
-                    {formatDate(startDate)}
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
-
-            {showStartDatePicker && (
-              <DateTimePicker
-                value={startDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleStartDateChange}
-              />
-            )}
           </View>
 
           {/* Parent Trip Card - Only show for CHILD trips */}
@@ -522,74 +455,6 @@ export default function TripDetailsScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* From Country Picker Modal */}
-      <Modal
-        visible={showFromCountryPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowFromCountryPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select From Country</Text>
-              <TouchableOpacity onPress={() => setShowFromCountryPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={countries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => {
-                    setFromCountryId(item.id);
-                    setShowFromCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      {/* To Country Picker Modal */}
-      <Modal
-        visible={showToCountryPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowToCountryPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select To Country</Text>
-              <TouchableOpacity onPress={() => setShowToCountryPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={countries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => {
-                    setToCountryId(item.id);
-                    setShowToCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -804,44 +669,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#2a2a2a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    paddingTop: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3a3a3a',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  modalClose: {
-    fontSize: 24,
-    color: '#fff',
-  },
-  countryItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3a3a3a',
-  },
-  countryItemText: {
-    fontSize: 16,
-    color: '#fff',
   },
 });

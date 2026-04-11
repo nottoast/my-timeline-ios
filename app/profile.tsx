@@ -6,15 +6,15 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
-  Modal,
-  FlatList,
   ActivityIndicator,
   Switch,
+  ScrollView,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
 import { useRouter } from 'expo-router';
 import CustomHeader from '@/components/CustomHeader';
+import CountryAutocomplete from '@/components/CountryAutocomplete';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { User as AppUser } from '@/types';
@@ -27,7 +27,6 @@ export default function ProfileScreen() {
   const [userData, setUserData] = useState<AppUser | null>(null);
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
   const [enableSchengenCalculations, setEnableSchengenCalculations] = useState<'enable' | 'disable'>('disable');
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -109,7 +108,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <CustomHeader title="Profile" showBackButton={true} onBackPress={() => router.push('/view-trips')} />
       
-      <View style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -132,15 +131,14 @@ export default function ProfileScreen() {
           <>
             <View style={styles.fieldSection}>
               <Text style={styles.fieldLabel}>Country of Residence</Text>
-              <TouchableOpacity
-                style={styles.countryButton}
-                onPress={() => setShowCountryPicker(true)}
+              <CountryAutocomplete
+                countries={countries}
+                value={countryOfResidenceId}
+                onSelect={setCountryOfResidenceId}
+                placeholder="Start typing country name..."
                 disabled={loadingCountries}
-              >
-                <Text style={[styles.countryButtonText, !countryOfResidenceId && styles.placeholderText]}>
-                  {loadingCountries ? 'Loading...' : (countryOfResidenceId ? getCountryFullName(countryOfResidenceId) : 'Not set')}
-                </Text>
-              </TouchableOpacity>
+                getCountryName={getCountryFullName}
+              />
             </View>
 
             <View style={styles.fieldSection}>
@@ -185,41 +183,7 @@ export default function ProfileScreen() {
             </View>
           </>
         )}
-      </View>
-
-      {/* Country Picker Modal */}
-      <Modal
-        visible={showCountryPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCountryPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country of Residence</Text>
-              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={countries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => {
-                    setCountryOfResidenceId(item.id);
-                    setShowCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -231,8 +195,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 40,
+    paddingBottom: 24,
   },
   profileSection: {
     alignItems: 'center',
@@ -275,20 +242,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 8,
   },
-  countryButton: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  countryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-  },
-  placeholderText: {
-    color: '#666',
-  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -327,43 +280,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  modalClose: {
-    fontSize: 24,
-    color: '#007AFF',
-    fontWeight: '300',
-  },
-  countryItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  countryItemText: {
-    fontSize: 16,
-    color: '#ffffff',
   },
 });

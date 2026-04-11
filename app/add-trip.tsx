@@ -7,41 +7,35 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
-  Platform,
   ScrollView,
   KeyboardAvoidingView,
   Alert,
-  Modal,
-  FlatList,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { createTrip } from '@/config/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
+import CountryAutocomplete from '@/components/CountryAutocomplete';
 import { useCountries } from '@/contexts/CountriesContext';
 
 export default function AddTripScreen() {
   const router = useRouter();
   const { parentTripId } = useLocalSearchParams<{ parentTripId?: string }>();
-  const { countries, loading: loadingCountries } = useCountries();
+  const { countries, loading: loadingCountries, getCountryName } = useCountries();
   const [tripName, setTripName] = useState('');
   const [parentTripName, setParentTripName] = useState('');
   const [isChildTrip, setIsChildTrip] = useState(false);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
   const [toCountryId, setToCountryId] = useState('');
-  const [showFromCountryPicker, setShowFromCountryPicker] = useState(false);
-  const [showToCountryPicker, setShowToCountryPicker] = useState(false);
 
   // Fetch parent trip if parentTripId is provided
   useEffect(() => {
@@ -64,40 +58,8 @@ export default function AddTripScreen() {
     fetchParentTrip();
   }, [parentTripId]);
 
-  const handleStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowStartDatePicker(false);
-    }
-    if (event.type === 'dismissed') {
-      setShowStartDatePicker(false);
-    }
-    if (selectedDate) {
-      setStartDate(selectedDate);
-      // If round trip, update end date to one week after start date
-      if (isRoundTrip) {
-        const oneWeekLater = new Date(selectedDate);
-        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-        setEndDate(oneWeekLater);
-      }
-    }
-  };
-
-  const handleEndDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowEndDatePicker(false);
-    }
-    if (event.type === 'dismissed') {
-      setShowEndDatePicker(false);
-    }
-    if (selectedDate) {
-      setEndDate(selectedDate);
-    }
-  };
-
   const handleRoundTripToggle = (value: boolean) => {
     setIsRoundTrip(value);
-    setShowStartDatePicker(false);
-    setShowEndDatePicker(false);
     // Set end date to one week after start date when enabling round trip
     if (value) {
       const oneWeekLater = new Date(startDate);
@@ -180,11 +142,6 @@ export default function AddTripScreen() {
     }
   };
 
-  const getCountryName = (countryId: string) => {
-    const country = countries.find(c => c.id === countryId);
-    return country ? country.name : 'Select Country';
-  };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -219,38 +176,32 @@ export default function AddTripScreen() {
                   placeholderTextColor="#666"
                   value={tripName}
                   onChangeText={setTripName}
-                  onFocus={() => {
-                    setShowStartDatePicker(false);
-                    setShowEndDatePicker(false);
-                  }}
                 />
               )}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>From Country</Text>
-              <TouchableOpacity
-                style={styles.countryButton}
-                onPress={() => setShowFromCountryPicker(true)}
+              <CountryAutocomplete
+                countries={countries}
+                value={fromCountryId}
+                onSelect={setFromCountryId}
+                placeholder="Start typing country name..."
                 disabled={loadingCountries}
-              >
-                <Text style={[styles.countryButtonText, !fromCountryId && styles.placeholderText]}>
-                  {loadingCountries ? 'Loading...' : getCountryName(fromCountryId)}
-                </Text>
-              </TouchableOpacity>
+                getCountryName={getCountryName}
+              />
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>To Country</Text>
-              <TouchableOpacity
-                style={styles.countryButton}
-                onPress={() => setShowToCountryPicker(true)}
+              <CountryAutocomplete
+                countries={countries}
+                value={toCountryId}
+                onSelect={setToCountryId}
+                placeholder="Start typing country name..."
                 disabled={loadingCountries}
-              >
-                <Text style={[styles.countryButtonText, !toCountryId && styles.placeholderText]}>
-                  {loadingCountries ? 'Loading...' : getCountryName(toCountryId)}
-                </Text>
-              </TouchableOpacity>
+                getCountryName={getCountryName}
+              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -268,29 +219,7 @@ export default function AddTripScreen() {
                 }}
 
               />
-              {Platform.OS !== 'web' && (
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => {
-                    setShowStartDatePicker(true);
-                    setShowEndDatePicker(false);
-                  }}
-                >
-                  <Text style={styles.dateButtonText}>
-                    {formatDate(startDate)}
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
-
-            {showStartDatePicker && (
-              <DateTimePicker
-                value={startDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleStartDateChange}
-              />
-            )}
 
             <View style={styles.inputGroup}>
               <View style={styles.toggleRow}>
@@ -314,27 +243,7 @@ export default function AddTripScreen() {
                     setEndDate(selectedDate);
                   }}
                 />
-                {Platform.OS !== 'web' && (
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => setShowEndDatePicker(true)}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {formatDate(endDate)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
-            )}
-
-            {isRoundTrip && showEndDatePicker && (
-              <DateTimePicker
-                value={endDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                minimumDate={startDate}
-                onChange={handleEndDateChange}
-              />
             )}
 
             <TouchableOpacity
@@ -349,74 +258,6 @@ export default function AddTripScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* From Country Picker Modal */}
-      <Modal
-        visible={showFromCountryPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowFromCountryPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select From Country</Text>
-              <TouchableOpacity onPress={() => setShowFromCountryPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={countries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => {
-                    setFromCountryId(item.id);
-                    setShowFromCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      {/* To Country Picker Modal */}
-      <Modal
-        visible={showToCountryPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowToCountryPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select To Country</Text>
-              <TouchableOpacity onPress={() => setShowToCountryPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={countries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => {
-                    setToCountryId(item.id);
-                    setShowToCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -465,20 +306,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
-  dateButton: {
-    backgroundColor: '#3a3a3a',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#4a4a4a',
-    width: '100%',
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: '#ffffff',
-    flexShrink: 1,
-  },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -507,57 +334,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
-  },
-  countryButton: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  countryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-  },
-  placeholderText: {
-    color: '#666',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    paddingBottom: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  modalClose: {
-    fontSize: 24,
-    color: '#999',
-  },
-  countryItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  countryItemText: {
-    fontSize: 16,
-    color: '#ffffff',
   },
 });

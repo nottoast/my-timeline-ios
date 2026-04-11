@@ -11,23 +11,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Modal,
-  FlatList,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
+import CountryAutocomplete from '@/components/CountryAutocomplete';
 
 type AuthMode = 'initial' | 'login' | 'register';
 
 export default function LoginScreen() {
   const { signInWithEmail, registerWithEmail, loading } = useAuth();
-  const { countries, loading: loadingCountries } = useCountries();
+  const { countries, loading: loadingCountries, getCountryFullName } = useCountries();
   const [authMode, setAuthMode] = useState<AuthMode>('initial');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -67,11 +65,6 @@ export default function LoginScreen() {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const getCountryName = (countryId: string) => {
-    const country = countries.find(c => c.id === countryId);
-    return country ? country.name : 'Select Country (Optional)';
   };
 
   const renderInitialView = () => (
@@ -163,15 +156,17 @@ export default function LoginScreen() {
         editable={!isProcessing}
       />
       
-      <TouchableOpacity
-        style={styles.countryButton}
-        onPress={() => setShowCountryPicker(true)}
-        disabled={loadingCountries || isProcessing}
-      >
-        <Text style={[styles.countryButtonText, !countryOfResidenceId && styles.placeholderText]}>
-          {loadingCountries ? 'Loading...' : getCountryName(countryOfResidenceId)}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.countryFieldContainer}>
+        <Text style={styles.countryLabel}>Country of Residence (Optional)</Text>
+        <CountryAutocomplete
+          countries={countries}
+          value={countryOfResidenceId}
+          onSelect={setCountryOfResidenceId}
+          placeholder="Start typing country name..."
+          disabled={loadingCountries || isProcessing}
+          getCountryName={getCountryFullName}
+        />
+      </View>
       
       <TouchableOpacity
         style={[styles.actionButton, isProcessing && styles.buttonDisabled]}
@@ -228,40 +223,6 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Country Picker Modal */}
-      <Modal
-        visible={showCountryPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCountryPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country of Residence</Text>
-              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={countries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryItem}
-                  onPress={() => {
-                    setCountryOfResidenceId(item.id);
-                    setShowCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryItemText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -379,56 +340,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  countryButton: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
+  countryFieldContainer: {
+    gap: 8,
   },
-  countryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-  },
-  placeholderText: {
-    color: '#666',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  modalClose: {
-    fontSize: 24,
-    color: '#007AFF',
-    fontWeight: '300',
-  },
-  countryItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
-  },
-  countryItemText: {
-    fontSize: 16,
-    color: '#ffffff',
+  countryLabel: {
+    fontSize: 14,
+    color: '#999',
+    fontWeight: '500',
   },
 });
