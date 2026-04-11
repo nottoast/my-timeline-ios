@@ -171,6 +171,7 @@ export default function CountryAutocomplete({
         editable={!disabled}
         autoCorrect={false}
         autoCapitalize="words"
+        autoComplete="off"
         nativeID="country-autocomplete-input"
       />
 

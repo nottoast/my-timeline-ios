@@ -132,6 +132,9 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
 
       // Update user with provided fields
       const updateData: any = {};
+      if (username !== undefined && typeof username === 'string' && username.trim() !== '') {
+        updateData.username = username;
+      }
       if (countryOfResidenceId !== undefined) {
         updateData.countryOfResidenceId = countryOfResidenceId;
       }

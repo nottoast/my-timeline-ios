@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Switch,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
@@ -22,9 +23,10 @@ import { updateUser } from '@/config/functions';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
-  const { countries, loading: loadingCountries, getCountryFullName } = useCountries();
+  const { countries, countriesMap, loading: loadingCountries, getCountryFullName } = useCountries();
   const router = useRouter();
   const [userData, setUserData] = useState<AppUser | null>(null);
+  const [username, setUsername] = useState('');
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
   const [enableSchengenCalculations, setEnableSchengenCalculations] = useState<'enable' | 'disable'>('disable');
   const [loadingUser, setLoadingUser] = useState(true);
@@ -47,6 +49,7 @@ export default function ProfileScreen() {
           const userDoc = querySnapshot.docs[0];
           const data = userDoc.data() as AppUser;
           setUserData(data);
+          setUsername(data.username || '');
           setCountryOfResidenceId(data.countryOfResidenceId || '');
           setEnableSchengenCalculations(data.enableSchengenCalculations || 'disable');
         }
@@ -63,10 +66,11 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
+      console.log('Saving profile with username:', username);
       console.log('Saving profile with countryOfResidenceId:', countryOfResidenceId);
       console.log('Saving profile with enableSchengenCalculations:', enableSchengenCalculations);
       const response = await updateUser(
-        undefined,
+        username || undefined,
         undefined,
         countryOfResidenceId || undefined,
         enableSchengenCalculations
@@ -77,6 +81,7 @@ export default function ProfileScreen() {
         Alert.alert('Success', 'Profile updated successfully!');
         if (response.user) {
           setUserData(response.user);
+          setUsername(response.user.username || '');
           setCountryOfResidenceId(response.user.countryOfResidenceId || '');
           setEnableSchengenCalculations(response.user.enableSchengenCalculations || 'disable');
         }
@@ -117,7 +122,7 @@ export default function ProfileScreen() {
           </View>
           
           <Text style={styles.name}>
-            {user?.displayName || 'User'}
+            {userData?.username || 'User'}
           </Text>
           
           <Text style={styles.email}>
@@ -129,6 +134,19 @@ export default function ProfileScreen() {
           <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
         ) : (
           <>
+            <View style={styles.fieldSection}>
+              <Text style={styles.fieldLabel}>Username</Text>
+              <TextInput
+                style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Enter your username..."
+                placeholderTextColor="#666"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
             <View style={styles.fieldSection}>
               <Text style={styles.fieldLabel}>Country of Residence</Text>
               <CountryAutocomplete
@@ -146,6 +164,9 @@ export default function ProfileScreen() {
                 <View style={styles.toggleLabelContainer}>
                   <Text style={styles.fieldLabel}>Enable Schengen Calculations</Text>
                   <Text style={styles.toggleDescription}>Automatically count Schengen days remaining</Text>
+                  {countriesMap.get(countryOfResidenceId)?.isSchengen && (
+                    <Text style={styles.toggleDescription}><Text style={{ fontWeight: 'bold' }}>Note:</Text> As a resident of {getCountryFullName(countryOfResidenceId)} you can safely disable this</Text>
+                  )}
                 </View>
                 <Switch
                   value={enableSchengenCalculations === 'enable'}
@@ -241,6 +262,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#ffffff',
   },
   toggleRow: {
     flexDirection: 'row',

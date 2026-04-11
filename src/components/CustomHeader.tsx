@@ -24,8 +24,10 @@ export default function CustomHeader({ title, showBackButton = false, onBackPres
   const handleBackPress = () => {
     if (onBackPress) {
       onBackPress();
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace('/(tabs)');
     }
   };
 
