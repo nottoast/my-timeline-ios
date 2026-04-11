@@ -26,7 +26,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [userData, setUserData] = useState<AppUser | null>(null);
   const [countryOfResidenceId, setCountryOfResidenceId] = useState('');
-  const [enableSchengenCalculations, setEnableSchengenCalculations] = useState(false);
+  const [enableSchengenCalculations, setEnableSchengenCalculations] = useState<'enable' | 'disable'>('disable');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,7 +49,7 @@ export default function ProfileScreen() {
           const data = userDoc.data() as AppUser;
           setUserData(data);
           setCountryOfResidenceId(data.countryOfResidenceId || '');
-          setEnableSchengenCalculations(data.enableSchengenCalculations || false);
+          setEnableSchengenCalculations(data.enableSchengenCalculations || 'disable');
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -79,7 +79,7 @@ export default function ProfileScreen() {
         if (response.user) {
           setUserData(response.user);
           setCountryOfResidenceId(response.user.countryOfResidenceId || '');
-          setEnableSchengenCalculations(response.user.enableSchengenCalculations || false);
+          setEnableSchengenCalculations(response.user.enableSchengenCalculations || 'disable');
         }
       } else {
         Alert.alert('Error', response.message || 'Failed to update profile');
@@ -150,10 +150,10 @@ export default function ProfileScreen() {
                   <Text style={styles.toggleDescription}>Automatically count Schengen days remaining</Text>
                 </View>
                 <Switch
-                  value={enableSchengenCalculations}
-                  onValueChange={setEnableSchengenCalculations}
+                  value={enableSchengenCalculations === 'enable'}
+                  onValueChange={(value) => setEnableSchengenCalculations(value ? 'enable' : 'disable')}
                   trackColor={{ false: '#3a3a3a', true: '#007AFF' }}
-                  thumbColor={enableSchengenCalculations ? '#ffffff' : '#f4f3f4'}
+                  thumbColor={enableSchengenCalculations === 'enable' ? '#ffffff' : '#f4f3f4'}
                 />
               </View>
             </View>

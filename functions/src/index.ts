@@ -57,8 +57,8 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
             updateData.countryOfResidenceId = countryOfResidenceId;
           }
           
-          // Update Schengen calculations setting if provided
-          if (enableSchengenCalculations !== undefined) {
+          // Update Schengen calculations setting if provided with explicit 'enable' or 'disable'
+          if (enableSchengenCalculations === 'enable' || enableSchengenCalculations === 'disable') {
             updateData.enableSchengenCalculations = enableSchengenCalculations;
           }
           
@@ -84,7 +84,7 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
           registeredAt: now.toDate().toISOString(),
           lastLoggedInAt: now.toDate().toISOString(),
           ...(countryOfResidenceId && { countryOfResidenceId }),
-          ...(enableSchengenCalculations !== undefined && { enableSchengenCalculations }),
+          ...((enableSchengenCalculations === 'enable' || enableSchengenCalculations === 'disable') && { enableSchengenCalculations }),
         };
 
         await userRef.set(newUser);
@@ -135,7 +135,7 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
       if (countryOfResidenceId !== undefined) {
         updateData.countryOfResidenceId = countryOfResidenceId;
       }
-      if (enableSchengenCalculations !== undefined) {
+      if (enableSchengenCalculations === 'enable' || enableSchengenCalculations === 'disable') {
         updateData.enableSchengenCalculations = enableSchengenCalculations;
       }
 

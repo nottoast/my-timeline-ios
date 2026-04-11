@@ -7,7 +7,7 @@ export interface User {
   username: string;
   email: string;
   countryOfResidenceId?: string;
-  enableSchengenCalculations?: boolean;
+  enableSchengenCalculations?: 'enable' | 'disable';
   registeredAt: string; // ISO timestamp
   lastLoggedInAt: string; // ISO timestamp
 }
@@ -16,7 +16,7 @@ export interface UpdateUserRequest {
   username?: string;
   email?: string;
   countryOfResidenceId?: string;
-  enableSchengenCalculations?: boolean;
+  enableSchengenCalculations?: 'enable' | 'disable';
 }
 
 export interface UpdateUserResponse {
