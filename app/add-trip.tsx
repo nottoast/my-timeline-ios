@@ -20,6 +20,7 @@ import { createTrip } from '@/config/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import CustomHeader from '@/components/CustomHeader';
+import DatePicker from '@/components/DatePicker';
 import { useCountries } from '@/contexts/CountriesContext';
 
 export default function AddTripScreen() {
@@ -255,11 +256,10 @@ export default function AddTripScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Start Date</Text>
               {Platform.OS === 'web' ? (
-                <input
-                  type="date"
+                <DatePicker
                   value={startDate.toISOString().split('T')[0]}
-                  onChange={(e) => {
-                    const selectedDate = new Date(e.target.value);
+                  onChange={(value) => {
+                    const selectedDate = new Date(value);
                     if (!isNaN(selectedDate.getTime())) {
                       setStartDate(selectedDate);
                       // If round trip and start date changes, update end date to one week later
@@ -269,18 +269,6 @@ export default function AddTripScreen() {
                         setEndDate(oneWeekLater);
                       }
                     }
-                  }}
-                  style={{
-                    display: 'block',
-                    backgroundColor: '#3a3a3a',
-                    borderRadius: 12,
-                    padding: 16,
-                    fontSize: 16,
-                    color: '#ffffff',
-                    border: '1px solid #4a4a4a',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    colorScheme: 'dark',
                   }}
                 />
               ) : (
@@ -323,27 +311,14 @@ export default function AddTripScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
                 {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
+                  <DatePicker
                     value={endDate.toISOString().split('T')[0]}
                     min={startDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const selectedDate = new Date(e.target.value);
+                    onChange={(value) => {
+                      const selectedDate = new Date(value);
                       if (!isNaN(selectedDate.getTime())) {
                         setEndDate(selectedDate);
                       }
-                    }}
-                    style={{
-                      display: 'block',
-                      backgroundColor: '#3a3a3a',
-                      borderRadius: 12,
-                      padding: 16,
-                      fontSize: 16,
-                      color: '#ffffff',
-                      border: '1px solid #4a4a4a',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      colorScheme: 'dark',
                     }}
                   />
                 ) : (
