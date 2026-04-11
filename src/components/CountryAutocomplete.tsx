@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,16 @@ import {
   Platform,
 } from 'react-native';
 import { Country } from '@/types';
+
+// Web-only: portal that renders children directly into document.body,
+// escaping the ScrollView's overflow clipping without stealing focus.
+let WebPortal: React.FC<{ children: React.ReactNode }> | null = null;
+if (Platform.OS === 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { createPortal } = require('react-dom') as typeof import('react-dom');
+  WebPortal = ({ children }) =>
+    createPortal(children, document.body) as React.ReactElement;
+}
 
 interface CountryAutocompleteProps {
   countries: Country[];
@@ -30,6 +40,8 @@ export default function CountryAutocomplete({
   const [searchText, setSearchText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [filteredCountries, setFilteredCountries] = useState<Country[]>([]);
+  const containerRef = useRef<View>(null);
+  const [dropdownMetrics, setDropdownMetrics] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Update search text when value changes from outside (initial value or reset)
   useEffect(() => {
@@ -77,6 +89,12 @@ export default function CountryAutocomplete({
     if (value) {
       setSearchText('');
     }
+    // On web, measure the container position for Modal-based dropdown positioning
+    if (Platform.OS === 'web') {
+      containerRef.current?.measureInWindow((x, y, width, height) => {
+        setDropdownMetrics({ top: y + height + 4, left: x, width });
+      });
+    }
   };
 
   const handleBlur = () => {
@@ -100,8 +118,21 @@ export default function CountryAutocomplete({
     }
   };
 
+  const dropdownItems = filteredCountries.map((item, index) => (
+    <TouchableOpacity
+      key={item.id}
+      style={[
+        styles.dropdownItem,
+        index === filteredCountries.length - 1 && styles.dropdownItemLast,
+      ]}
+      onPress={() => handleSelect(item)}
+    >
+      <Text style={styles.dropdownItemText}>{item.name}</Text>
+    </TouchableOpacity>
+  ));
+
   return (
-    <View style={styles.container}>
+    <View ref={containerRef} style={styles.container} nativeID="country-autocomplete-container">
       <TextInput
         style={[
           styles.input,
@@ -117,28 +148,39 @@ export default function CountryAutocomplete({
         editable={!disabled}
         autoCorrect={false}
         autoCapitalize="words"
+        nativeID="country-autocomplete-input"
       />
-      
+
       {isFocused && filteredCountries.length > 0 && (
-        <View style={styles.dropdown}>
-          <ScrollView
-            keyboardShouldPersistTaps="always"
-            nestedScrollEnabled={true}
-          >
-            {filteredCountries.map((item, index) => (
-              <TouchableOpacity
-                key={item.id}
+        Platform.OS === 'web' && WebPortal ? (
+          <WebPortal>
+            {dropdownMetrics && (
+              <View
                 style={[
-                  styles.dropdownItem,
-                  index === filteredCountries.length - 1 && styles.dropdownItemLast,
+                  styles.dropdown,
+                  {
+                    // @ts-ignore - 'fixed' is valid CSS but not in RN types
+                    position: 'fixed',
+                    top: dropdownMetrics.top,
+                    left: dropdownMetrics.left,
+                    width: dropdownMetrics.width,
+                  },
                 ]}
-                onPress={() => handleSelect(item)}
+                nativeID="country-autocomplete-dropdown"
               >
-                <Text style={styles.dropdownItemText}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+                <ScrollView keyboardShouldPersistTaps="always">
+                  {dropdownItems}
+                </ScrollView>
+              </View>
+            )}
+          </WebPortal>
+        ) : (
+          <View style={styles.dropdown} nativeID="country-autocomplete-dropdown">
+            <ScrollView keyboardShouldPersistTaps="always" nestedScrollEnabled>
+              {dropdownItems}
+            </ScrollView>
+          </View>
+        )
       )}
     </View>
   );
@@ -148,11 +190,6 @@ const styles = StyleSheet.create({
   container: {
     position: 'relative',
     zIndex: 1000,
-    ...Platform.select({
-      web: {
-        isolation: 'auto',
-      },
-    }),
   },
   input: {
     backgroundColor: '#2a2a2a',
@@ -172,11 +209,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
     borderWidth: 1,
@@ -186,18 +218,26 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     ...Platform.select({
       ios: {
+        position: 'absolute',
+        top: '100%' as unknown as number,
+        left: 0,
+        right: 0,
+        marginTop: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
       },
       android: {
+        position: 'absolute',
+        top: '100%' as unknown as number,
+        left: 0,
+        right: 0,
+        marginTop: 4,
         elevation: 10,
       },
       web: {
         boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.4)',
-        // @ts-ignore - web-only CSS property
-        willChange: 'transform',
       },
     }),
   },
