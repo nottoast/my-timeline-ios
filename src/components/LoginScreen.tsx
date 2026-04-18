@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
+import { FONTS } from '@/constants/typography';
 
 type AuthMode = 'initial' | 'login' | 'register';
 
@@ -260,6 +261,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: 'bold',
+    fontFamily: FONTS.title,
     color: '#ffffff',
     textAlign: 'center',
   },

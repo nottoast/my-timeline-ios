@@ -4,9 +4,13 @@ This directory is for storing custom font files.
 
 ## ✅ Currently Active Font
 
-**DM Serif Text** is currently set as the title font for "YourTrips"!
+**DM Serif Text** is currently set as the branding font for "YourTrips"!
 - Font file: `DMSerifText-Regular.ttf`
 - Configured in: `/src/constants/typography.ts`
+- Used on: Login page title and main header when showing "YourTrips"
+- NOT used on: Profile, Trip Details, Add Trip, or other page titles (they use the system font)
+
+This gives your app a distinctive, elegant serif look for the brand name while keeping other UI text clean and modern.
 
 ## How to Add a Custom Font
 

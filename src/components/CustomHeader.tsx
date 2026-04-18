@@ -44,7 +44,7 @@ export default function CustomHeader({ title, showBackButton = false, onBackPres
             <Ionicons name="arrow-back" size={24} color="#007AFF" />
           </TouchableOpacity>
         )}
-        <Text style={styles.title}>{title}</Text>
+        <Text style={title === 'YourTrips' ? styles.titleBranded : styles.title}>{title}</Text>
       </View>
       
       <View style={styles.rightSection}>
@@ -92,6 +92,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONTS.weights.bold,
+    color: '#ffffff',
+  },
+  titleBranded: {
     fontSize: FONT_SIZES.xxl,
     fontWeight: FONTS.weights.bold,
     fontFamily: FONTS.title,

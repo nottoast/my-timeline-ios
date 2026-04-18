@@ -5,28 +5,31 @@ service cloud.firestore {
     
     // Users collection
     match /users/{userId} {
-      // Only authenticated users can read user profiles
-      allow read: if request.auth != null;
+      // Users can only read their own profile
+      allow read: if request.auth != null 
+                  && request.auth.uid == userId;
       
-      // Only authenticated users can create/update their own profile
+      // Users can create/update their own profile only
       allow create, update: if request.auth != null 
+                            && request.auth.uid == userId
                             && request.auth.token.email == request.resource.data.email;
       
-      // Only the user can delete their own profile
+      // Users can delete their own profile only
       allow delete: if request.auth != null 
                     && request.auth.uid == userId;
     }
     
-    // Trips collection (for future use)
+    // Trips collection
     match /trips/{tripId} {
-      // Only authenticated users can read trips
-      allow read: if request.auth != null;
+      // Users can only read their own trips
+      allow read: if request.auth != null 
+                  && request.auth.uid == resource.data.userId;
       
-      // Only authenticated users can create trips
+      // Users can only create trips for themselves
       allow create: if request.auth != null 
                     && request.auth.uid == request.resource.data.userId;
       
-      // Only trip owner can update/delete
+      // Users can only update/delete their own trips
       allow update, delete: if request.auth != null 
                             && request.auth.uid == resource.data.userId;
     }
