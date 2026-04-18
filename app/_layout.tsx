@@ -29,7 +29,7 @@ const theme = {
 
 export default function RootLayout() {
   const { width } = useWindowDimensions();
-  const horizontalPadding = width > 800 ? Math.round(width * 0.1) : 0;
+  const horizontalPadding = 0; //width > 800 ? Math.round(width * 0.1) : 0;
 
   const [loaded, error] = useFonts({
     ...Ionicons.font,

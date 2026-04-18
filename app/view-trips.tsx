@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,16 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, query, where, onSnapshot, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
 import { Trip, User as AppUser } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
 import EUPill from '@/components/EUPill';
+import TimelineSkeletonLoader from '@/components/TimelineSkeletonLoader';
 import { Ionicons } from '@expo/vector-icons';
 import { computeSchengenDaysRemaining } from '@/utils/schengen';
 
@@ -25,6 +24,8 @@ interface TimelineItem {
   trip: Trip;
   children: Trip[];
 }
+
+const TRIPS_PER_PAGE = 5;
 
 export default function ViewTripsScreen() {
   const router = useRouter();
@@ -34,134 +35,187 @@ export default function ViewTripsScreen() {
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [schengenDaysRemaining, setSchengenDaysRemaining] = useState(90);
   const [schengenIsInvalid, setSchengenIsInvalid] = useState(false);
   const [userData, setUserData] = useState<AppUser | null>(null);
   const [enableSchengenCalculations, setEnableSchengenCalculations] = useState<'enable' | 'disable'>('disable');
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Set up real-time listener for trips
-  useEffect(() => {
-    // Wait for auth to finish loading before checking user
-    if (authLoading) {
-      return;
-    }
-
+  // Load trips with pagination
+  const loadTrips = useCallback(async (isRefresh = false) => {
     if (!user) {
-      console.log('No user found, skipping listener');
+      console.log('No user found, skipping load');
       setError('No user logged in');
       setLoading(false);
       return;
     }
 
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
-    setLoading(true);
 
-    console.log('Setting up real-time listener for user:', user.uid);
-    const tripsRef = collection(db, 'trips');
-    
-    // Query for parent trips
-    const parentQuery = query(
-      tripsRef,
-      where('userId', '==', user.uid),
-      where('tripType', '==', 'PARENT')
-    );
+    try {
+      console.log('Loading trips for user:', user.uid);
+      const tripsRef = collection(db, 'trips');
+      
+      // Query for parent trips with pagination
+      const parentQuery = query(
+        tripsRef,
+        where('userId', '==', user.uid),
+        where('tripType', '==', 'PARENT'),
+        orderBy('tripDate', 'desc'),
+        limit(TRIPS_PER_PAGE)
+      );
 
-    // Query for child trips
-    const childQuery = query(
-      tripsRef,
-      where('userId', '==', user.uid),
-      where('tripType', '==', 'CHILD')
-    );
+      const parentSnapshot = await getDocs(parentQuery);
+      const fetchedTrips: Trip[] = [];
 
-    // Set up real-time listener for parent trips
-    const unsubscribeParent = onSnapshot(
-      parentQuery,
-      (querySnapshot) => {
-        const fetchedTrips: Trip[] = [];
+      parentSnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedTrips.push({
+          id: doc.id,
+          userId: data.userId,
+          tripType: data.tripType,
+          name: data.name,
+          tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
+          fromCountryId: data.fromCountryId,
+          fromCountryName: data.fromCountryName,
+          toCountryId: data.toCountryId,
+          toCountryName: data.toCountryName,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          parentTripId: data.parentTripId,
+          tripVisaStatus: data.tripVisaStatus,
+        } as Trip);
+      });
 
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          fetchedTrips.push({
-            id: doc.id,
-            userId: data.userId,
-            tripType: data.tripType,
-            name: data.name,
-            tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
-            fromCountryId: data.fromCountryId,
-            fromCountryName: data.fromCountryName,
-            toCountryId: data.toCountryId,
-            toCountryName: data.toCountryName,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-            parentTripId: data.parentTripId,
-            tripVisaStatus: data.tripVisaStatus,
-          } as Trip);
-        });
+      // Load ALL child trips for the user (not paginated)
+      const childQuery = query(
+        tripsRef,
+        where('userId', '==', user.uid),
+        where('tripType', '==', 'CHILD')
+      );
 
-        // Sort by tripDate descending (newest first)
-        fetchedTrips.sort((a, b) => {
-          return new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime();
-        });
+      const childSnapshot = await getDocs(childQuery);
+      const fetchedChildTrips: Trip[] = [];
 
-        console.log('Real-time update: Parent trips:', fetchedTrips.length);
-        setTrips(fetchedTrips);
-        setLoading(false);
-        setRefreshing(false);
-      },
-      (error) => {
-        console.error('Error in parent trips listener:', error);
-        if (error instanceof Error) {
-          setError(error.message);
-        } else {
-          setError('Failed to fetch trips');
-        }
-        setLoading(false);
-        setRefreshing(false);
+      childSnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedChildTrips.push({
+          id: doc.id,
+          userId: data.userId,
+          tripType: data.tripType,
+          name: data.name,
+          tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
+          fromCountryId: data.fromCountryId,
+          fromCountryName: data.fromCountryName,
+          toCountryId: data.toCountryId,
+          toCountryName: data.toCountryName,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          parentTripId: data.parentTripId,
+          tripVisaStatus: data.tripVisaStatus,
+        } as Trip);
+      });
+
+      console.log('Loaded parent trips:', fetchedTrips.length);
+      console.log('Loaded child trips:', fetchedChildTrips.length);
+      
+      setTrips(fetchedTrips);
+      setChildTrips(fetchedChildTrips);
+      setLastDoc(parentSnapshot.docs[parentSnapshot.docs.length - 1] || null);
+      setHasMore(parentSnapshot.docs.length === TRIPS_PER_PAGE);
+      setLoading(false);
+      setRefreshing(false);
+    } catch (error) {
+      console.error('Error loading trips:', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Failed to load trips');
       }
-    );
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user]);
 
-    // Set up real-time listener for child trips
-    const unsubscribeChild = onSnapshot(
-      childQuery,
-      (querySnapshot) => {
-        const fetchedChildTrips: Trip[] = [];
+  // Load more trips
+  const loadMoreTrips = useCallback(async () => {
+    if (!user || !hasMore || loadingMore || !lastDoc) {
+      return;
+    }
 
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          fetchedChildTrips.push({
-            id: doc.id,
-            userId: data.userId,
-            tripType: data.tripType,
-            name: data.name,
-            tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
-            fromCountryId: data.fromCountryId,
-            fromCountryName: data.fromCountryName,
-            toCountryId: data.toCountryId,
-            toCountryName: data.toCountryName,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-            parentTripId: data.parentTripId,
-            tripVisaStatus: data.tripVisaStatus,
-          } as Trip);
-        });
+    setLoadingMore(true);
 
-        console.log('Real-time update: Child trips:', fetchedChildTrips.length);
-        setChildTrips(fetchedChildTrips);
-      },
-      (error) => {
-        console.error('Error in child trips listener:', error);
-      }
-    );
+    try {
+      // Add delay to see loading indicator in action
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      console.log('Loading more trips...');
+      const tripsRef = collection(db, 'trips');
+      
+      const parentQuery = query(
+        tripsRef,
+        where('userId', '==', user.uid),
+        where('tripType', '==', 'PARENT'),
+        orderBy('tripDate', 'desc'),
+        startAfter(lastDoc),
+        limit(TRIPS_PER_PAGE)
+      );
 
-    // Cleanup listeners on unmount or when user changes
-    return () => {
-      console.log('Cleaning up real-time listeners');
-      unsubscribeParent();
-      unsubscribeChild();
-    };
-  }, [user, authLoading]);
+      const parentSnapshot = await getDocs(parentQuery);
+      const newTrips: Trip[] = [];
+
+      parentSnapshot.forEach((doc) => {
+        const data = doc.data();
+        newTrips.push({
+          id: doc.id,
+          userId: data.userId,
+          tripType: data.tripType,
+          name: data.name,
+          tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
+          fromCountryId: data.fromCountryId,
+          fromCountryName: data.fromCountryName,
+          toCountryId: data.toCountryId,
+          toCountryName: data.toCountryName,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          parentTripId: data.parentTripId,
+          tripVisaStatus: data.tripVisaStatus,
+        } as Trip);
+      });
+
+      console.log('Loaded additional trips:', newTrips.length);
+      
+      setTrips(prev => [...prev, ...newTrips]);
+      setLastDoc(parentSnapshot.docs[parentSnapshot.docs.length - 1] || null);
+      setHasMore(parentSnapshot.docs.length === TRIPS_PER_PAGE);
+      setLoadingMore(false);
+    } catch (error) {
+      console.error('Error loading more trips:', error);
+      setLoadingMore(false);
+    }
+  }, [user, hasMore, loadingMore, lastDoc]);
+
+  // Initial load
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      console.log('No user found, skipping load');
+      setError('No user logged in');
+      setLoading(false);
+      return;
+    }
+
+    loadTrips();
+  }, [user, authLoading, loadTrips]);
 
   // Organize trips into timeline items whenever trips or childTrips change
   useEffect(() => {
@@ -216,12 +270,7 @@ export default function ViewTripsScreen() {
   }, [trips, childTrips, enableSchengenCalculations]);
 
   const onRefresh = () => {
-    setRefreshing(true);
-    // With real-time listener, data updates automatically
-    // Just provide visual feedback for the user
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 500);
+    loadTrips(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -381,10 +430,7 @@ export default function ViewTripsScreen() {
           schengenDaysRemaining={enableSchengenCalculations === 'enable' ? schengenDaysRemaining : undefined} 
           schengenIsInvalid={enableSchengenCalculations === 'enable' ? schengenIsInvalid : undefined} 
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
+        <TimelineSkeletonLoader />
       </SafeAreaView>
     );
   }
@@ -420,19 +466,34 @@ export default function ViewTripsScreen() {
           )}
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={timelineItems}
+          keyExtractor={(item) => item.trip.id}
+          renderItem={({ item, index }) => renderTimelineItem(item, index)}
           contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#fff"
-            />
-          }
-        >
-          {timelineItems.map((item, index) => renderTimelineItem(item, index))}
-          <View style={styles.bottomPadding} />
-        </ScrollView>
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          onEndReached={loadMoreTrips}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={() => {
+            if (loadingMore) {
+              return (
+                <View style={styles.loadingMoreContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.loadingMoreText}>Loading more...</Text>
+                </View>
+              );
+            }
+            if (!hasMore && timelineItems.length > 0) {
+              return (
+                <View style={styles.endMessageContainer}>
+                  <Text style={styles.endMessageText}></Text>
+                </View>
+              );
+            }
+            return <View style={styles.bottomPadding} />;
+          }}
+        />
       )}
 
       {/* Floating Action Button */}
@@ -451,16 +512,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a1a',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#999',
-    marginTop: 16,
-    fontSize: 16,
   },
   emptyContainer: {
     flex: 1,
@@ -674,5 +725,22 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
+  },
+  loadingMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    color: '#999',
+    marginTop: 8,
+    fontSize: 14,
+  },
+  endMessageContainer: {
+    paddingVertical: 30,
+    alignItems: 'center',
+  },
+  endMessageText: {
+    color: '#666',
+    fontSize: 14,
   },
 });
