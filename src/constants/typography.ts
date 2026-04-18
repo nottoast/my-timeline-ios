@@ -22,7 +22,7 @@ export const FONTS = {
   bold: 'System',
   
   // Special fonts
-  title: 'System', // ← Change this to update the "YourTrips" title font!
+  title: 'DMSerifText-Regular', // ← Change this to update the "YourTrips" title font!
   
   // Weight variants (if using custom fonts)
   weights: {

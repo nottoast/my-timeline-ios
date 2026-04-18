@@ -33,6 +33,7 @@ export default function RootLayout() {
 
   const [loaded, error] = useFonts({
     ...Ionicons.font,
+    'DMSerifText-Regular': require('../assets/fonts/DMSerifText-Regular.ttf'),
   });
 
   // Load Ionicons font for web from CDN (client-side only)

@@ -21,6 +21,11 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png" />
     <link rel="manifest" href="/assets/images/site.webmanifest" />
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Text&display=swap" rel="stylesheet" />
+    
     <title>YourTrips</title>
     
     <!-- Load Ionicons font from CDN for web -->
@@ -28,6 +33,15 @@
       @font-face {
         font-family: 'Ionicons';
         src: url('https://unpkg.com/@expo/vector-icons@15.0.3/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+      }
+      
+      /* Alias for DM Serif Text to match native font name */
+      @font-face {
+        font-family: 'DMSerifText-Regular';
+        src: local('DM Serif Text'), local('DMSerifText-Regular');
         font-weight: normal;
         font-style: normal;
         font-display: swap;

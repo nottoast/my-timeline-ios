@@ -2,6 +2,12 @@
 
 This directory is for storing custom font files.
 
+## ✅ Currently Active Font
+
+**DM Serif Text** is currently set as the title font for "YourTrips"!
+- Font file: `DMSerifText-Regular.ttf`
+- Configured in: `/src/constants/typography.ts`
+
 ## How to Add a Custom Font
 
 1. **Add your font files here**
