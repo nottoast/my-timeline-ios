@@ -14,22 +14,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCountries } from '@/contexts/CountriesContext';
 import { Trip, User as AppUser } from '@/types';
 import CustomHeader from '@/components/CustomHeader';
-import EUPill from '@/components/EUPill';
 import TimelineSkeletonLoader from '@/components/TimelineSkeletonLoader';
+import TripTimeline, { TimelineItem } from '@/components/TripTimeline';
 import { Ionicons } from '@expo/vector-icons';
 import { computeSchengenDaysRemaining } from '@/utils/schengen';
-
-interface TimelineItem {
-  trip: Trip;
-  children: Trip[];
-}
 
 const TRIPS_PER_PAGE = 50;
 
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { getCountryName } = useCountries();
+  useCountries(); // Ensure CountriesContext is loaded for TripTimeline
   const flatListRef = useRef<FlatList>(null);
   const lastClickedTripIdRef = useRef<string | null>(null);
   const hasLoadedOnceRef = useRef(false);
@@ -315,154 +310,7 @@ export default function ViewTripsScreen() {
     router.push(`/trip/${tripId}`);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
 
-  const formatParentDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const isTripInFuture = (tripDate: string) => {
-    return new Date(tripDate) > new Date();
-  };
-
-  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean, isOnlyChild: boolean, totalChildren: number, parentTripId: string) => {
-    const isInFuture = isTripInFuture(child.tripDate);
-    return (
-      <TouchableOpacity
-        key={child.id}
-        style={styles.childTripContainer}
-        onPress={() => handleTripPress(child.id, parentTripId)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.timelineColumn}>
-          <View style={[
-            styles.childTimelineLine,
-            totalChildren > 1 ? {
-              top: -50,
-              bottom: isLast ? 0 : -50
-            } : {}
-          ]} />
-          <View style={styles.childTimelineCircle} />
-      </View>
-      <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
-        <View style={styles.tripRouteContainer}>
-          <Text style={styles.routeCountry}>{getCountryName(child.fromCountryId)}</Text>
-          {enableSchengenCalculations === 'enable' && child.tripVisaStatus === 'LEFT_SCHENGEN' && (
-            <EUPill prefix="←" style={styles.pillInline} />
-          )}
-          <Text style={styles.routeArrow}> → </Text>
-          <Text style={styles.routeCountry}>{getCountryName(child.toCountryId)}</Text>
-          {enableSchengenCalculations === 'enable' && child.tripVisaStatus === 'ENTERED_SCHENGEN' && (
-            <EUPill prefix="→" style={styles.pillInline} />
-          )}
-        </View>
-        <Text style={styles.childTripDate}>{formatDate(child.tripDate)}</Text>
-      </View>
-    </TouchableOpacity>
-    );
-  };
-
-  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean, totalChildren: number, parentTripId: string) => {
-    const isInFuture = isTripInFuture(trip.tripDate);
-    return (
-      <TouchableOpacity
-        key={`${trip.id}-outbound`}
-        style={styles.childTripContainer}
-        onPress={() => handleTripPress(trip.id, parentTripId)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.timelineColumn}>
-          <View style={[
-            styles.childTimelineLine,
-            totalChildren > 1 ? {
-              top: 0,
-              bottom: -50
-            } : {}
-          ]} />
-          <View style={styles.childTimelineCircle} />
-      </View>
-      <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
-        <View style={styles.tripRouteContainer}>
-          <Text style={styles.routeCountry}>{getCountryName(trip.fromCountryId)}</Text>
-          {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
-            <EUPill prefix="←" style={styles.pillInline} />
-          )}
-          <Text style={styles.routeArrow}> → </Text>
-          <Text style={styles.routeCountry}>{getCountryName(trip.toCountryId)}</Text>
-          {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
-            <EUPill prefix="→" style={styles.pillInline} />
-          )}
-        </View>
-        <Text style={styles.childTripDate}>{formatDate(trip.tripDate)}</Text>
-      </View>
-    </TouchableOpacity>
-    );
-  };
-
-  const renderTimelineItem = (item: TimelineItem, index: number) => {
-    const isLast = index === timelineItems.length - 1;
-    const isFirst = index === 0;
-    const hasChildren = item.children.length > 0;
-    const totalChildren = 1 + item.children.length; // 1 outbound + actual children
-    const isInFuture = isTripInFuture(item.trip.tripDate);
-    
-    // Calculate the height needed to extend the line through all child trips
-    // Each child trip is approximately 90px (50px minHeight card + 16px container padding + 24px buffer)
-    const childTripHeight = 105;
-    const lineExtension = isLast ? 0 : totalChildren * childTripHeight;
-
-    return (
-      <View key={item.trip.id} style={styles.timelineItemContainer}>
-        {/* Parent Trip */}
-        <TouchableOpacity
-          style={styles.parentTripContainer}
-          onPress={() => handleTripPress(item.trip.id)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.timelineColumn}>
-            <View style={[
-              styles.timelineLine,
-              { 
-                top: 0,
-                bottom: -lineExtension
-              }
-            ]} />
-            <View style={styles.timelineCircle} />
-          </View>
-          <View style={isInFuture ? styles.tripCardFuture : styles.tripCard}>
-            <Text style={styles.tripName}>{item.trip.name}</Text>
-            <Text style={styles.tripDate}>{formatParentDate(item.trip.tripDate)}</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Outbound Trip (duplicate of parent data) */}
-        {renderOutboundTrip(item.trip, isLast, hasChildren, totalChildren, item.trip.id)}
-
-        {/* Child Trips */}
-        {item.children.map((child, childIndex) => 
-          renderChildTrip(
-            child, 
-            childIndex === item.children.length - 1, 
-            isLast,
-            totalChildren === 1,
-            totalChildren,
-            item.trip.id
-          )
-        )}
-      </View>
-    );
-  };
 
   // Show loading skeleton only on initial load when we have no cached data
   if (authLoading || (loading && timelineItems.length === 0)) {
@@ -509,18 +357,15 @@ export default function ViewTripsScreen() {
           )}
         </View>
       ) : (
-        <FlatList
-          ref={flatListRef}
-          data={timelineItems}
-          keyExtractor={(item) => item.trip.id}
-          renderItem={({ item, index }) => renderTimelineItem(item, index)}
-          contentContainerStyle={styles.scrollContent}
+        <TripTimeline
+          flatListRef={flatListRef}
+          timelineItems={timelineItems}
+          enableSchengenCalculations={enableSchengenCalculations}
+          onTripPress={handleTripPress}
           onRefresh={onRefresh}
           refreshing={refreshing}
           onEndReached={loadMoreTrips}
-          onEndReachedThreshold={0.5}
           onScrollToIndexFailed={(info) => {
-            // If scrollToIndex fails, wait a bit and try again
             setTimeout(() => {
               flatListRef.current?.scrollToIndex({
                 index: info.index,
@@ -529,9 +374,7 @@ export default function ViewTripsScreen() {
               });
             }, 100);
           }}
-          ListFooterComponent={() => {
-            return <View style={styles.bottomPadding} />;
-          }}
+          ListFooterComponent={() => <View style={styles.bottomPadding} />}
         />
       )}
 

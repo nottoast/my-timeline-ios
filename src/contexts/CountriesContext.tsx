@@ -31,7 +31,7 @@ export const CountriesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const getCountryName = (countryId: string): string => {
     const country = countriesMap.get(countryId);
-    return country ? (country.shortName || country.name) : 'Unknown';
+    return country ? (country.shortName || country.name) : '?';
   };
 
   const getCountryFullName = (countryId: string): string => {

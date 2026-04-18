@@ -12,9 +12,10 @@ interface CustomHeaderProps {
   onBackPress?: () => void;
   schengenDaysRemaining?: number;
   schengenIsInvalid?: boolean;
+  showProfileBadge?: boolean;
 }
 
-export default function CustomHeader({ title, showBackButton = false, onBackPress, schengenDaysRemaining, schengenIsInvalid = false }: CustomHeaderProps) {
+export default function CustomHeader({ title, showBackButton = false, onBackPress, schengenDaysRemaining, schengenIsInvalid = false, showProfileBadge = true }: CustomHeaderProps) {
   const router = useRouter();
   const { user } = useAuth();
 
@@ -55,17 +56,19 @@ export default function CustomHeader({ title, showBackButton = false, onBackPres
           </View>
         )}
 
-        <TouchableOpacity 
-          style={styles.profileButton}
-          onPress={handleProfilePress}
-          activeOpacity={0.7}
-        >
-        <View style={styles.profilePicture}>
-          <Text style={styles.profileInitial}>
-            {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
-          </Text>
-        </View>
-        </TouchableOpacity>
+        {showProfileBadge && (
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={handleProfilePress}
+            activeOpacity={0.7}
+          >
+          <View style={styles.profilePicture}>
+            <Text style={styles.profileInitial}>
+              {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
+            </Text>
+          </View>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
