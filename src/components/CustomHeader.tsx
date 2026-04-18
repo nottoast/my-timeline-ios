@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import EUPill from '@/components/EUPill';
+import { FONTS, FONT_SIZES } from '@/constants/typography';
 
 interface CustomHeaderProps {
   title: string;
@@ -91,8 +92,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONTS.weights.bold,
+    fontFamily: FONTS.title,
     color: '#ffffff',
   },
   rightSection: {

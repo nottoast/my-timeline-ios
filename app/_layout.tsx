@@ -71,7 +71,7 @@ export default function RootLayout() {
     <PaperProvider theme={theme}>
       <AuthProvider>
         <CountriesProvider>
-          <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a' }}>
+          <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a !important' }}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="view-trips" />

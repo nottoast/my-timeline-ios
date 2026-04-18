@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,8 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { collection, query, where, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,12 +24,15 @@ interface TimelineItem {
   children: Trip[];
 }
 
-const TRIPS_PER_PAGE = 5;
+const TRIPS_PER_PAGE = 50;
 
 export default function ViewTripsScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { getCountryName } = useCountries();
+  const flatListRef = useRef<FlatList>(null);
+  const lastClickedTripIdRef = useRef<string | null>(null);
+  const hasLoadedOnceRef = useRef(false);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
@@ -153,9 +155,6 @@ export default function ViewTripsScreen() {
     setLoadingMore(true);
 
     try {
-      // Add delay to see loading indicator in action
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
       console.log('Loading more trips...');
       const tripsRef = collection(db, 'trips');
       
@@ -201,7 +200,7 @@ export default function ViewTripsScreen() {
     }
   }, [user, hasMore, loadingMore, lastDoc]);
 
-  // Initial load
+  // Initial load - only if we haven't loaded before
   useEffect(() => {
     if (authLoading) {
       return;
@@ -214,8 +213,41 @@ export default function ViewTripsScreen() {
       return;
     }
 
-    loadTrips();
+    // Only load if we haven't loaded data before (first mount)
+    if (!hasLoadedOnceRef.current) {
+      loadTrips();
+      hasLoadedOnceRef.current = true;
+    } else {
+      // Already have data, just stop loading indicator
+      setLoading(false);
+    }
   }, [user, authLoading, loadTrips]);
+
+  // Restore scroll position to the last clicked trip when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Scroll to the last clicked trip after a delay to ensure list is rendered
+      if (lastClickedTripIdRef.current && timelineItems.length > 0) {
+        const tripIdToScrollTo = lastClickedTripIdRef.current;
+        
+        setTimeout(() => {
+          const index = timelineItems.findIndex(item => item.trip.id === tripIdToScrollTo);
+          console.log('Attempting to scroll to trip:', tripIdToScrollTo, 'at index:', index);
+          
+          if (index !== -1) {
+            flatListRef.current?.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0.2, // Show near top of screen
+            });
+            
+            // Clear the saved trip ID after scrolling
+            lastClickedTripIdRef.current = null;
+          }
+        }, 300);
+      }
+    }, [timelineItems])
+  );
 
   // Organize trips into timeline items whenever trips or childTrips change
   useEffect(() => {
@@ -270,7 +302,17 @@ export default function ViewTripsScreen() {
   }, [trips, childTrips, enableSchengenCalculations]);
 
   const onRefresh = () => {
+    lastClickedTripIdRef.current = null;
+    hasLoadedOnceRef.current = false;
     loadTrips(true);
+  };
+
+  const handleTripPress = (tripId: string, parentTripId?: string) => {
+    // Save the parent trip ID for scroll restoration (or the trip ID itself if it's a parent)
+    const scrollToTripId = parentTripId || tripId;
+    console.log('Saving trip ID for scroll restoration:', scrollToTripId);
+    lastClickedTripIdRef.current = scrollToTripId;
+    router.push(`/trip/${tripId}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -294,13 +336,13 @@ export default function ViewTripsScreen() {
     return new Date(tripDate) > new Date();
   };
 
-  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean, isOnlyChild: boolean, totalChildren: number) => {
+  const renderChildTrip = (child: Trip, isLast: boolean, isLastOverall: boolean, isOnlyChild: boolean, totalChildren: number, parentTripId: string) => {
     const isInFuture = isTripInFuture(child.tripDate);
     return (
       <TouchableOpacity
         key={child.id}
         style={styles.childTripContainer}
-        onPress={() => router.push(`/trip/${child.id}`)}
+        onPress={() => handleTripPress(child.id, parentTripId)}
         activeOpacity={0.7}
       >
         <View style={styles.timelineColumn}>
@@ -331,13 +373,13 @@ export default function ViewTripsScreen() {
     );
   };
 
-  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean, totalChildren: number) => {
+  const renderOutboundTrip = (trip: Trip, isLast: boolean, hasChildren: boolean, totalChildren: number, parentTripId: string) => {
     const isInFuture = isTripInFuture(trip.tripDate);
     return (
       <TouchableOpacity
         key={`${trip.id}-outbound`}
         style={styles.childTripContainer}
-        onPress={() => router.push(`/trip/${trip.id}`)}
+        onPress={() => handleTripPress(trip.id, parentTripId)}
         activeOpacity={0.7}
       >
         <View style={styles.timelineColumn}>
@@ -385,7 +427,7 @@ export default function ViewTripsScreen() {
         {/* Parent Trip */}
         <TouchableOpacity
           style={styles.parentTripContainer}
-          onPress={() => router.push(`/trip/${item.trip.id}`)}
+          onPress={() => handleTripPress(item.trip.id)}
           activeOpacity={0.7}
         >
           <View style={styles.timelineColumn}>
@@ -405,7 +447,7 @@ export default function ViewTripsScreen() {
         </TouchableOpacity>
 
         {/* Outbound Trip (duplicate of parent data) */}
-        {renderOutboundTrip(item.trip, isLast, hasChildren, totalChildren)}
+        {renderOutboundTrip(item.trip, isLast, hasChildren, totalChildren, item.trip.id)}
 
         {/* Child Trips */}
         {item.children.map((child, childIndex) => 
@@ -414,19 +456,20 @@ export default function ViewTripsScreen() {
             childIndex === item.children.length - 1, 
             isLast,
             totalChildren === 1,
-            totalChildren
+            totalChildren,
+            item.trip.id
           )
         )}
       </View>
     );
   };
 
-  // Show loading while auth is initializing or while trips are loading
-  if (authLoading || loading) {
+  // Show loading skeleton only on initial load when we have no cached data
+  if (authLoading || (loading && timelineItems.length === 0)) {
     return (
       <SafeAreaView style={styles.container}>
         <CustomHeader 
-          title="Timeline" 
+          title="YourTrips" 
           schengenDaysRemaining={enableSchengenCalculations === 'enable' ? schengenDaysRemaining : undefined} 
           schengenIsInvalid={enableSchengenCalculations === 'enable' ? schengenIsInvalid : undefined} 
         />
@@ -438,7 +481,7 @@ export default function ViewTripsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <CustomHeader 
-        title="Timeline" 
+        title="YourTrips" 
         schengenDaysRemaining={enableSchengenCalculations === 'enable' ? schengenDaysRemaining : undefined} 
         schengenIsInvalid={enableSchengenCalculations === 'enable' ? schengenIsInvalid : undefined} 
       />
@@ -467,6 +510,7 @@ export default function ViewTripsScreen() {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={timelineItems}
           keyExtractor={(item) => item.trip.id}
           renderItem={({ item, index }) => renderTimelineItem(item, index)}
@@ -475,22 +519,17 @@ export default function ViewTripsScreen() {
           refreshing={refreshing}
           onEndReached={loadMoreTrips}
           onEndReachedThreshold={0.5}
+          onScrollToIndexFailed={(info) => {
+            // If scrollToIndex fails, wait a bit and try again
+            setTimeout(() => {
+              flatListRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            }, 100);
+          }}
           ListFooterComponent={() => {
-            if (loadingMore) {
-              return (
-                <View style={styles.loadingMoreContainer}>
-                  <ActivityIndicator size="small" color="#fff" />
-                  <Text style={styles.loadingMoreText}>Loading more...</Text>
-                </View>
-              );
-            }
-            if (!hasMore && timelineItems.length > 0) {
-              return (
-                <View style={styles.endMessageContainer}>
-                  <Text style={styles.endMessageText}></Text>
-                </View>
-              );
-            }
             return <View style={styles.bottomPadding} />;
           }}
         />
@@ -725,22 +764,5 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
-  },
-  loadingMoreContainer: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  loadingMoreText: {
-    color: '#999',
-    marginTop: 8,
-    fontSize: 14,
-  },
-  endMessageContainer: {
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  endMessageText: {
-    color: '#666',
-    fontSize: 14,
   },
 });
