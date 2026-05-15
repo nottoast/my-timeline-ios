@@ -5,9 +5,13 @@ service cloud.firestore {
     
     // Users collection
     match /users/{userId} {
-      // Users can only read their own profile
+      // Users can only read their own profile. Existing user docs are keyed by
+      // generated document IDs, so allow either UID-keyed docs or email-owned docs.
       allow read: if request.auth != null 
-                  && request.auth.uid == userId;
+                  && (
+                    request.auth.uid == userId
+                    || request.auth.token.email == resource.data.email
+                  );
       
       // Users can create/update their own profile only
       allow create, update: if request.auth != null 

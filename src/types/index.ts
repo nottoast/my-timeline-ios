@@ -26,6 +26,7 @@ export interface UpdateUserResponse {
 }
 
 export type TripType = 'PARENT' | 'CHILD';
+export type TransportType = 'plane' | 'boat' | 'train' | 'bus' | 'car';
 
 export interface Country {
   id: string;
@@ -50,6 +51,9 @@ export interface Trip {
   toCountryName: string;
   parentTripId?: string; // Set on CHILD trip, references the PARENT trip
   tripVisaStatus?: TripVisaStatus; // Set when crossing Schengen border
+  transportType?: TransportType;
+  placeFrom?: string;
+  placeTo?: string;
   createdAt: string;
 }
 
@@ -62,6 +66,9 @@ export interface CreateTripRequest {
   endDate?: string; // ISO date string, required if isRoundTrip is true
   tripType?: 'PARENT' | 'CHILD'; // Optional, defaults to PARENT
   parentTripId?: string; // Required if tripType is CHILD
+  transportType?: TransportType;
+  placeFrom?: string;
+  placeTo?: string;
 }
 
 export interface CreateTripResponse {

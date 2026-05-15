@@ -89,6 +89,9 @@ export default function ViewTripsScreen() {
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
           parentTripId: data.parentTripId,
           tripVisaStatus: data.tripVisaStatus,
+          transportType: data.transportType,
+          placeFrom: data.placeFrom || data.fromAirport,
+          placeTo: data.placeTo || data.toAirport,
         } as Trip);
       });
 
@@ -117,6 +120,9 @@ export default function ViewTripsScreen() {
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
           parentTripId: data.parentTripId,
           tripVisaStatus: data.tripVisaStatus,
+          transportType: data.transportType,
+          placeFrom: data.placeFrom || data.fromAirport,
+          placeTo: data.placeTo || data.toAirport,
         } as Trip);
       });
 
@@ -180,6 +186,9 @@ export default function ViewTripsScreen() {
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
           parentTripId: data.parentTripId,
           tripVisaStatus: data.tripVisaStatus,
+          transportType: data.transportType,
+          placeFrom: data.placeFrom || data.fromAirport,
+          placeTo: data.placeTo || data.toAirport,
         } as Trip);
       });
 
@@ -351,7 +360,7 @@ export default function ViewTripsScreen() {
             <>
               <Text style={styles.emptyText}>No trips yet</Text>
               <Text style={styles.emptySubText}>
-                Tap the + button below to add your first trip!
+                Tap the + button below to add your first!
               </Text>
             </>
           )}

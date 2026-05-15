@@ -194,7 +194,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         };
       }
 
-      const { name, tripDate, fromCountryId, toCountryId, isRoundTrip, endDate, tripType, parentTripId } = data;
+      const { name, tripDate, fromCountryId, toCountryId, isRoundTrip, endDate, tripType, parentTripId, transportType, placeFrom, placeTo } = data;
 
       // Validate input - name is only required for PARENT trips
       const isChildTrip = tripType === 'CHILD' && parentTripId;
@@ -219,6 +219,20 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           message: 'From and to countries are required',
         };
       }
+
+      if (transportType && !['plane', 'boat', 'train', 'bus', 'car'].includes(transportType)) {
+        return {
+          success: false,
+          message: 'Invalid transport type',
+        };
+      }
+
+      const normalizedPlaceFrom = transportType && typeof placeFrom === 'string'
+        ? placeFrom.trim()
+        : '';
+      const normalizedPlaceTo = transportType && typeof placeTo === 'string'
+        ? placeTo.trim()
+        : '';
 
       // Get country data from utility functions
       const fromCountry = getCountryById(fromCountryId);
@@ -295,6 +309,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           parentTripId,
           createdAt: now,
         };
+        if (transportType) childTripData.transportType = transportType;
+        if (normalizedPlaceFrom) childTripData.placeFrom = normalizedPlaceFrom;
+        if (normalizedPlaceTo) childTripData.placeTo = normalizedPlaceTo;
         if (outboundVisaStatus) childTripData.tripVisaStatus = outboundVisaStatus;
 
         await childTripRef.set(childTripData);
@@ -310,6 +327,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           toCountryName,
           parentTripId,
           createdAt: now.toDate().toISOString(),
+          ...(transportType && { transportType }),
+          ...(normalizedPlaceFrom && { placeFrom: normalizedPlaceFrom }),
+          ...(normalizedPlaceTo && { placeTo: normalizedPlaceTo }),
           ...(outboundVisaStatus && { tripVisaStatus: outboundVisaStatus as any }),
         };
 
@@ -333,6 +353,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
             parentTripId,
             createdAt: now,
           };
+          if (transportType) returnTripData.transportType = transportType;
+          if (normalizedPlaceTo) returnTripData.placeFrom = normalizedPlaceTo;
+          if (normalizedPlaceFrom) returnTripData.placeTo = normalizedPlaceFrom;
           if (returnVisaStatus) returnTripData.tripVisaStatus = returnVisaStatus;
 
           await returnTripRef.set(returnTripData);
@@ -348,6 +371,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
             toCountryName: fromCountryName,  // Reversed
             parentTripId,
             createdAt: now.toDate().toISOString(),
+            ...(transportType && { transportType }),
+            ...(normalizedPlaceTo && { placeFrom: normalizedPlaceTo }),
+            ...(normalizedPlaceFrom && { placeTo: normalizedPlaceFrom }),
             ...(returnVisaStatus && { tripVisaStatus: returnVisaStatus as any }),
           };
         }
@@ -389,6 +415,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         toCountryName,
         createdAt: now,
       };
+      if (transportType) parentTripData.transportType = transportType;
+      if (normalizedPlaceFrom) parentTripData.placeFrom = normalizedPlaceFrom;
+      if (normalizedPlaceTo) parentTripData.placeTo = normalizedPlaceTo;
       if (outboundVisaStatus) parentTripData.tripVisaStatus = outboundVisaStatus;
 
       await parentTripRef.set(parentTripData);
@@ -405,6 +434,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         toCountryId,
         toCountryName,
         createdAt: now.toDate().toISOString(),
+        ...(transportType && { transportType }),
+        ...(normalizedPlaceFrom && { placeFrom: normalizedPlaceFrom }),
+        ...(normalizedPlaceTo && { placeTo: normalizedPlaceTo }),
         ...(outboundVisaStatus && { tripVisaStatus: outboundVisaStatus as any }),
       };
 
@@ -425,6 +457,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           parentTripId: parentTrip.id,
           createdAt: now,
         };
+        if (transportType) childTripData.transportType = transportType;
+        if (normalizedPlaceTo) childTripData.placeFrom = normalizedPlaceTo;
+        if (normalizedPlaceFrom) childTripData.placeTo = normalizedPlaceFrom;
         if (returnVisaStatus) childTripData.tripVisaStatus = returnVisaStatus;
 
         await childTripRef.set(childTripData);
@@ -440,6 +475,9 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
           toCountryName: fromCountryName,  // Reversed
           parentTripId: parentTrip.id,
           createdAt: now.toDate().toISOString(),
+          ...(transportType && { transportType }),
+          ...(normalizedPlaceTo && { placeFrom: normalizedPlaceTo }),
+          ...(normalizedPlaceFrom && { placeTo: normalizedPlaceFrom }),
           ...(returnVisaStatus && { tripVisaStatus: returnVisaStatus as any }),
         };
       }

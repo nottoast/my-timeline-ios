@@ -16,20 +16,33 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { Trip } from '@/types';
+import { TransportType, Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
+import AirportAutocomplete from '@/components/AirportAutocomplete';
 import { Ionicons } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { WELL_KNOWN_AIRPORTS } from '@/utils/airports';
+
+const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
+  { value: 'plane', label: 'Plane' },
+  { value: 'boat', label: 'Boat' },
+  { value: 'train', label: 'Train' },
+  { value: 'bus', label: 'Bus' },
+  { value: 'car', label: 'Car' },
+];
 
 export default function TripDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { countries, loading: loadingCountries, getCountryFullName, getCountryName } = useCountries();
+  const { user, loading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -37,6 +50,10 @@ export default function TripDetailsScreen() {
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
+  const [transportType, setTransportType] = useState<TransportType | undefined>();
+  const [placeFrom, setPlaceFrom] = useState('');
+  const [placeTo, setPlaceTo] = useState('');
+  const isPlaneTrip = transportType === 'plane';
   
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
@@ -53,7 +70,36 @@ export default function TripDetailsScreen() {
   // Load trip data
   useEffect(() => {
     const loadData = async () => {
+      if (authLoading) {
+        return;
+      }
+
+      if (!id) {
+        setLoadError('Trip not found');
+        setLoading(false);
+        return;
+      }
+
+      if (!user) {
+        setLoadError('Please sign in to view this trip');
+        setLoading(false);
+        return;
+      }
+
       try {
+        setLoading(true);
+        setLoadError(null);
+        setTripName('');
+        setChildTrips([]);
+        setIsChildTripsExpanded(false);
+        setIsChildTrip(false);
+        setParentTripName('');
+        setParentTripId('');
+        setTripType('PARENT');
+        setTransportType(undefined);
+        setPlaceFrom('');
+        setPlaceTo('');
+
         // Load trip data
         const tripRef = doc(db, 'trips', id);
         const tripDoc = await getDoc(tripRef);
@@ -66,6 +112,9 @@ export default function TripDetailsScreen() {
           setTripName(tripData.name || '');
           setTripType(tripData.tripType || 'PARENT');
           setIsChildTrip(tripData.tripType === 'CHILD');
+          setTransportType(tripData.transportType);
+          setPlaceFrom(tripData.placeFrom || tripData.fromAirport || '');
+          setPlaceTo(tripData.placeTo || tripData.toAirport || '');
           
           // If this is a child trip, fetch parent trip name
           if (tripData.tripType === 'CHILD' && tripData.parentTripId) {
@@ -82,6 +131,7 @@ export default function TripDetailsScreen() {
             const childTripsRef = collection(db, 'trips');
             const childTripsQuery = query(
               childTripsRef,
+              where('userId', '==', user.uid),
               where('parentTripId', '==', id),
               where('tripType', '==', 'CHILD')
             );
@@ -101,6 +151,9 @@ export default function TripDetailsScreen() {
                 toCountryName: data.toCountryName,
                 createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
                 parentTripId: data.parentTripId,
+                transportType: data.transportType,
+                placeFrom: data.placeFrom || data.fromAirport,
+                placeTo: data.placeTo || data.toAirport,
               } as Trip);
             });
             // Sort child trips by tripDate ascending (oldest first)
@@ -137,17 +190,25 @@ export default function TripDetailsScreen() {
           
           setIsRoundTrip(false);
         } else {
-          router.back();
+          setLoadError('Trip not found');
         }
       } catch (error) {
         console.error('Error loading trip:', error);
+        setLoadError('Failed to load trip');
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [id]);
+  }, [id, user, authLoading]);
+
+  useEffect(() => {
+    if (!isPlaneTrip) {
+      setPlaceFrom('');
+      setPlaceTo('');
+    }
+  }, [isPlaneTrip]);
 
   const handleSave = async () => {
     // Only validate trip name for parent trips
@@ -192,6 +253,9 @@ export default function TripDetailsScreen() {
         fromCountryName: fromCountry?.name || '',
         toCountryName: toCountry?.name || '',
         tripVisaStatus: tripVisaStatus ?? null,
+        transportType: transportType ?? null,
+        placeFrom: isPlaneTrip && placeFrom.trim() ? placeFrom.trim() : null,
+        placeTo: isPlaneTrip && placeTo.trim() ? placeTo.trim() : null,
       };
 
       // Only update name for parent trips
@@ -203,7 +267,7 @@ export default function TripDetailsScreen() {
       
       // Navigate to parent trip if this is a child trip, otherwise to timeline
       if (isChildTrip && parentTripId) {
-        router.push(`/trip/${parentTripId}`);
+        router.replace(`/trip/${parentTripId}`);
       } else {
         router.push('/view-trips');
       }
@@ -259,6 +323,17 @@ export default function TripDetailsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Loading trip...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <CustomHeader title="Trip Details" showBackButton={true} onBackPress={handleBackPress} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>{loadError}</Text>
         </View>
       </SafeAreaView>
     );
@@ -336,6 +411,54 @@ export default function TripDetailsScreen() {
 
               />
             </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Transport Type</Text>
+              <View style={styles.optionGrid}>
+                {TRANSPORT_OPTIONS.map((option) => {
+                  const isSelected = transportType === option.value;
+
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
+                      onPress={() => setTransportType(isSelected ? undefined : option.value)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.optionButtonText, isSelected && styles.optionButtonTextSelected]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {isPlaneTrip && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>From Airport</Text>
+                  <AirportAutocomplete
+                    airports={WELL_KNOWN_AIRPORTS}
+                    value={placeFrom}
+                    onChangeText={setPlaceFrom}
+                    countryId={fromCountryId}
+                    placeholder="Airport name, city, or code..."
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>To Airport</Text>
+                  <AirportAutocomplete
+                    airports={WELL_KNOWN_AIRPORTS}
+                    value={placeTo}
+                    onChangeText={setPlaceTo}
+                    countryId={toCountryId}
+                    placeholder="Airport name, city, or code..."
+                  />
+                </View>
+              </>
+            )}
           </View>
 
           {/* Parent Trip Card - Only show for CHILD trips */}
@@ -343,7 +466,7 @@ export default function TripDetailsScreen() {
             <View style={styles.parentTripCard}>
               <TouchableOpacity
                 style={styles.parentTripButton}
-                onPress={() => router.push(`/trip/${parentTripId}`)}
+                onPress={() => router.replace(`/trip/${parentTripId}`)}
                 activeOpacity={0.7}
               >
                 <View style={styles.parentTripContent}>
@@ -378,7 +501,7 @@ export default function TripDetailsScreen() {
                   onPress={() => router.push(`/add-trip?parentTripId=${id}`)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add" size={20} color="#007AFF" />
+                  <Ionicons name="add" size={18} color="#ffffff" />
                 </TouchableOpacity>
               </View>
               
@@ -391,7 +514,7 @@ export default function TripDetailsScreen() {
                         styles.childTripRow,
                         index === childTrips.length - 1 && styles.childTripRowLast
                       ]}
-                      onPress={() => router.push(`/trip/${childTrip.id}`)}
+                      onPress={() => router.replace(`/trip/${childTrip.id}`)}
                       activeOpacity={0.7}
                     >
                       <View style={styles.childTripInfo}>
@@ -422,7 +545,7 @@ export default function TripDetailsScreen() {
                   onPress={() => router.push(`/add-trip?parentTripId=${id}`)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add" size={20} color="#007AFF" />
+                  <Ionicons name="add" size={18} color="#ffffff" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -518,6 +641,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  optionButton: {
+    minWidth: 86,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+  },
+  optionButtonSelected: {
+    borderColor: '#007AFF',
+    backgroundColor: '#007AFF',
+  },
+  optionButtonText: {
+    color: '#cfcfcf',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  optionButtonTextSelected: {
+    color: '#ffffff',
+  },
   parentTripCard: {
     marginHorizontal: 20,
     marginTop: 20,
@@ -572,7 +722,12 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   addTripButton: {
-    padding: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: 8,
   },
   childTripsHeader: {

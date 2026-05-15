@@ -71,21 +71,16 @@ function buildDemoChild(
 function buildDemoTimelineItems(): TimelineItem[] {
   const year = new Date().getFullYear();
 
+  // Further past trip: moved from Madrid to the UK the year prior
+  const movedToUkDate = new Date(year - 2, 8, 1); // September 1 two years ago
+
   // Past trip: April of last year (UK → France, round trip)
   const pastOutbound = new Date(year - 1, 3, 10); // April 10 last year
   const pastReturn = new Date(year - 1, 3, 17);   // April 17 last year
 
-  // Mystery future trip: two years from now
-  const mysteryDate = new Date(year + 2, 5, 1); // June 1 in two years
-
   // Future trip: September of next year (UK → Italy, round trip)
   const futureOutbound = new Date(year + 1, 8, 5);  // September 5 next year
   const futureReturn = new Date(year + 1, 8, 12);   // September 12 next year
-
-  const mysteryParent = buildDemoTrip(
-    'demo-mystery', 'Your next adventure?', mysteryDate,
-    'GB', 'United Kingdom', '?', '?',
-  );
 
   const pastParent = buildDemoTrip(
     'demo-paris', 'Paris Trip', pastOutbound,
@@ -94,6 +89,10 @@ function buildDemoTimelineItems(): TimelineItem[] {
   const pastChild = buildDemoChild(
     'demo-paris-return', 'demo-paris', pastReturn,
     'FR', 'France', 'GB', 'United Kingdom',
+  );
+  const movedToUkParent = buildDemoTrip(
+    'demo-moved-to-uk', 'Moved to the UK', movedToUkDate,
+    'ES', 'Spain', 'GB', 'United Kingdom',
   );
 
   const futureParent = buildDemoTrip(
@@ -106,9 +105,9 @@ function buildDemoTimelineItems(): TimelineItem[] {
   );
 
   return [
-    { trip: mysteryParent, children: [] },
     { trip: futureParent, children: [futureChild] },
     { trip: pastParent, children: [pastChild] },
+    { trip: movedToUkParent, children: [] },
   ];
 }
 

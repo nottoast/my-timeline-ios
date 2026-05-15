@@ -19,7 +19,18 @@ import { db } from '@/config/firebase';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
+import AirportAutocomplete from '@/components/AirportAutocomplete';
 import { useCountries } from '@/contexts/CountriesContext';
+import { TransportType } from '@/types';
+import { WELL_KNOWN_AIRPORTS } from '@/utils/airports';
+
+const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
+  { value: 'plane', label: 'Plane' },
+  { value: 'boat', label: 'Boat' },
+  { value: 'train', label: 'Train' },
+  { value: 'bus', label: 'Bus' },
+  { value: 'car', label: 'Car' },
+];
 
 export default function AddTripScreen() {
   const router = useRouter();
@@ -32,6 +43,12 @@ export default function AddTripScreen() {
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [transportType, setTransportType] = useState<TransportType | undefined>();
+  const [placeFrom, setPlaceFrom] = useState('');
+  const [placeTo, setPlaceTo] = useState('');
+  const canCreateRoundTrip = !isChildTrip;
+  const shouldCreateRoundTrip = canCreateRoundTrip && isRoundTrip;
+  const isPlaneTrip = transportType === 'plane';
   
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
@@ -58,6 +75,13 @@ export default function AddTripScreen() {
     fetchParentTrip();
   }, [parentTripId]);
 
+  useEffect(() => {
+    if (!isPlaneTrip) {
+      setPlaceFrom('');
+      setPlaceTo('');
+    }
+  }, [isPlaneTrip]);
+
   const handleRoundTripToggle = (value: boolean) => {
     setIsRoundTrip(value);
     // Set end date to one week after start date when enabling round trip
@@ -70,7 +94,7 @@ export default function AddTripScreen() {
 
   const handleSave = async () => {
     console.log('handleSave called');
-    console.log('Trip data:', { tripName, fromCountryId, toCountryId, isRoundTrip, startDate, endDate, isChildTrip, parentTripId });
+    console.log('Trip data:', { tripName, fromCountryId, toCountryId, isRoundTrip: shouldCreateRoundTrip, startDate, endDate, isChildTrip, parentTripId });
     
     // Only validate trip name for parent trips
     if (!isChildTrip && !tripName.trim()) {
@@ -91,7 +115,7 @@ export default function AddTripScreen() {
       return;
     }
 
-    if (isRoundTrip && endDate <= startDate) {
+    if (shouldCreateRoundTrip && endDate <= startDate) {
       console.log('Validation failed: End date before start date');
       Alert.alert('Error', 'End date must be after start date');
       return;
@@ -101,8 +125,11 @@ export default function AddTripScreen() {
       tripDate: startDate.toISOString(),
       fromCountryId,
       toCountryId,
-      isRoundTrip,
-      ...(isRoundTrip && { endDate: endDate.toISOString() }),
+      isRoundTrip: shouldCreateRoundTrip,
+      ...(shouldCreateRoundTrip && { endDate: endDate.toISOString() }),
+      ...(transportType && { transportType }),
+      ...(isPlaneTrip && placeFrom.trim() && { placeFrom: placeFrom.trim() }),
+      ...(isPlaneTrip && placeTo.trim() && { placeTo: placeTo.trim() }),
     };
 
     // Add name only for parent trips
@@ -222,18 +249,68 @@ export default function AddTripScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <View style={styles.toggleRow}>
-                <Text style={styles.label}>Round Trip?</Text>
-                <Switch
-                  value={isRoundTrip}
-                  onValueChange={handleRoundTripToggle}
-                  trackColor={{ false: '#3a3a3a', true: '#007AFF' }}
-                  thumbColor={isRoundTrip ? '#ffffff' : '#f4f3f4'}
-                />
+              <Text style={styles.label}>Transport Type</Text>
+              <View style={styles.optionGrid}>
+                {TRANSPORT_OPTIONS.map((option) => {
+                  const isSelected = transportType === option.value;
+
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
+                      onPress={() => setTransportType(isSelected ? undefined : option.value)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.optionButtonText, isSelected && styles.optionButtonTextSelected]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            {isRoundTrip && (
+            {isPlaneTrip && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>From Airport</Text>
+                  <AirportAutocomplete
+                    airports={WELL_KNOWN_AIRPORTS}
+                    value={placeFrom}
+                    onChangeText={setPlaceFrom}
+                    countryId={fromCountryId}
+                    placeholder="Airport name, city, or code..."
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>To Airport</Text>
+                  <AirportAutocomplete
+                    airports={WELL_KNOWN_AIRPORTS}
+                    value={placeTo}
+                    onChangeText={setPlaceTo}
+                    countryId={toCountryId}
+                    placeholder="Airport name, city, or code..."
+                  />
+                </View>
+              </>
+            )}
+
+            {canCreateRoundTrip && (
+              <View style={styles.inputGroup}>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.label}>Round Trip?</Text>
+                  <Switch
+                    value={isRoundTrip}
+                    onValueChange={handleRoundTripToggle}
+                    trackColor={{ false: '#3a3a3a', true: '#007AFF' }}
+                    thumbColor={isRoundTrip ? '#ffffff' : '#f4f3f4'}
+                  />
+                </View>
+              </View>
+            )}
+
+            {shouldCreateRoundTrip && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>End Date</Text>
                 <PaperDatePicker
@@ -317,6 +394,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  optionButton: {
+    minWidth: 86,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+  },
+  optionButtonSelected: {
+    borderColor: '#007AFF',
+    backgroundColor: '#007AFF',
+  },
+  optionButtonText: {
+    color: '#cfcfcf',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  optionButtonTextSelected: {
+    color: '#ffffff',
   },
   saveButton: {
     backgroundColor: '#007AFF',
