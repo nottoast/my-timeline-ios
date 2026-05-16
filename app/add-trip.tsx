@@ -34,6 +34,11 @@ const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'car', label: 'Car' },
 ];
 
+type TransportPlaces = Partial<Record<TransportType, {
+  from?: TripPlace;
+  to?: TripPlace;
+}>>;
+
 export default function AddTripScreen() {
   const router = useRouter();
   const { parentTripId } = useLocalSearchParams<{ parentTripId?: string }>();
@@ -47,12 +52,23 @@ export default function AddTripScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [transportType, setTransportType] = useState<TransportType | undefined>();
   const [showMoreTransportOptions, setShowMoreTransportOptions] = useState(false);
-  const [placeFrom, setPlaceFrom] = useState<TripPlace | undefined>();
-  const [placeTo, setPlaceTo] = useState<TripPlace | undefined>();
+  const [transportPlaces, setTransportPlaces] = useState<TransportPlaces>({});
   const canCreateRoundTrip = !isChildTrip;
   const shouldCreateRoundTrip = canCreateRoundTrip && isRoundTrip;
   const isPlaneTrip = transportType === 'plane';
   const showPlaceFields = !!transportType && transportType !== 'plane';
+  const activePlaces = transportType ? transportPlaces[transportType] : undefined;
+  const activePlaceFrom = activePlaces?.from;
+  const activePlaceTo = activePlaces?.to;
+  const placeFieldText = {
+    fromLabel: transportType === 'boat' ? 'From Port' : transportType === 'train' ? 'From Station' : 'From Place',
+    toLabel: transportType === 'boat' ? 'To Port' : transportType === 'train' ? 'To Station' : 'To Place',
+    placeholder: transportType === 'boat'
+      ? 'Search for a port...'
+      : transportType === 'train'
+        ? 'Search for a station...'
+        : 'Search for a station, port, address...',
+  };
   
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
@@ -79,11 +95,6 @@ export default function AddTripScreen() {
     fetchParentTrip();
   }, [parentTripId]);
 
-  useEffect(() => {
-    setPlaceFrom(undefined);
-    setPlaceTo(undefined);
-  }, [transportType]);
-
   const handleRoundTripToggle = (value: boolean) => {
     setIsRoundTrip(value);
     // Set end date to one week after start date when enabling round trip
@@ -92,6 +103,28 @@ export default function AddTripScreen() {
       oneWeekLater.setDate(oneWeekLater.getDate() + 7);
       setEndDate(oneWeekLater);
     }
+  };
+
+  const setActivePlaceFrom = (place?: TripPlace) => {
+    if (!transportType) return;
+    setTransportPlaces(prev => ({
+      ...prev,
+      [transportType]: {
+        ...prev[transportType],
+        from: place,
+      },
+    }));
+  };
+
+  const setActivePlaceTo = (place?: TripPlace) => {
+    if (!transportType) return;
+    setTransportPlaces(prev => ({
+      ...prev,
+      [transportType]: {
+        ...prev[transportType],
+        to: place,
+      },
+    }));
   };
 
   const handleSave = async () => {
@@ -123,8 +156,8 @@ export default function AddTripScreen() {
       isRoundTrip: shouldCreateRoundTrip,
       ...(shouldCreateRoundTrip && { endDate: endDate.toISOString() }),
       ...(transportType && { transportType }),
-      ...(transportType && placeFrom && { placeFrom }),
-      ...(transportType && placeTo && { placeTo }),
+      ...(transportType && activePlaceFrom && { placeFrom: activePlaceFrom }),
+      ...(transportType && activePlaceTo && { placeTo: activePlaceTo }),
     };
 
     // Add name only for parent trips
@@ -299,8 +332,8 @@ export default function AddTripScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>From Airport</Text>
                     <GooglePlaceAutocomplete
-                      value={placeFrom}
-                      onChangePlace={setPlaceFrom}
+                      value={activePlaceFrom}
+                      onChangePlace={setActivePlaceFrom}
                       countryId={fromCountryId}
                       placeType="AIRPORT"
                       includedPrimaryTypes={['airport']}
@@ -311,8 +344,8 @@ export default function AddTripScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>To Airport</Text>
                     <GooglePlaceAutocomplete
-                      value={placeTo}
-                      onChangePlace={setPlaceTo}
+                      value={activePlaceTo}
+                      onChangePlace={setActivePlaceTo}
                       countryId={toCountryId}
                       placeType="AIRPORT"
                       includedPrimaryTypes={['airport']}
@@ -325,22 +358,22 @@ export default function AddTripScreen() {
               {showPlaceFields && (
                 <>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>From Place</Text>
+                    <Text style={styles.label}>{placeFieldText.fromLabel}</Text>
                     <GooglePlaceAutocomplete
-                      value={placeFrom}
-                      onChangePlace={setPlaceFrom}
+                      value={activePlaceFrom}
+                      onChangePlace={setActivePlaceFrom}
                       countryId={fromCountryId}
-                      placeholder="Search for a station, port, address..."
+                      placeholder={placeFieldText.placeholder}
                     />
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>To Place</Text>
+                    <Text style={styles.label}>{placeFieldText.toLabel}</Text>
                     <GooglePlaceAutocomplete
-                      value={placeTo}
-                      onChangePlace={setPlaceTo}
+                      value={activePlaceTo}
+                      onChangePlace={setActivePlaceTo}
                       countryId={toCountryId}
-                      placeholder="Search for a station, port, address..."
+                      placeholder={placeFieldText.placeholder}
                     />
                   </View>
                 </>

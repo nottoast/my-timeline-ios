@@ -16,7 +16,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { TransportType, Trip } from '@/types';
+import { TransportType, Trip, TripPlace } from '@/types';
 import { deleteTrip, updateTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
@@ -38,6 +38,11 @@ const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'car', label: 'Car' },
 ];
 
+type TransportPlaces = Partial<Record<TransportType, {
+  from?: TripPlace;
+  to?: TripPlace;
+}>>;
+
 export default function TripDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -55,10 +60,21 @@ export default function TripDetailsScreen() {
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [transportType, setTransportType] = useState<TransportType | undefined>();
   const [showMoreTransportOptions, setShowMoreTransportOptions] = useState(false);
-  const [placeFrom, setPlaceFrom] = useState<Trip['placeFrom']>();
-  const [placeTo, setPlaceTo] = useState<Trip['placeTo']>();
+  const [transportPlaces, setTransportPlaces] = useState<TransportPlaces>({});
   const isPlaneTrip = transportType === 'plane';
   const showPlaceFields = !!transportType && transportType !== 'plane';
+  const activePlaces = transportType ? transportPlaces[transportType] : undefined;
+  const activePlaceFrom = activePlaces?.from;
+  const activePlaceTo = activePlaces?.to;
+  const placeFieldText = {
+    fromLabel: transportType === 'boat' ? 'From Port' : transportType === 'train' ? 'From Station' : 'From Place',
+    toLabel: transportType === 'boat' ? 'To Port' : transportType === 'train' ? 'To Station' : 'To Place',
+    placeholder: transportType === 'boat'
+      ? 'Search for a port...'
+      : transportType === 'train'
+        ? 'Search for a station...'
+        : 'Search for a station, port, address...',
+  };
   
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
@@ -103,8 +119,7 @@ export default function TripDetailsScreen() {
         setTripType('PARENT');
         setTransportType(undefined);
         setShowMoreTransportOptions(false);
-        setPlaceFrom(undefined);
-        setPlaceTo(undefined);
+        setTransportPlaces({});
 
         // Load trip data
         const tripRef = doc(db, 'trips', id);
@@ -118,8 +133,16 @@ export default function TripDetailsScreen() {
           setIsChildTrip(tripData.tripType === 'CHILD');
           setTransportType(tripData.transportType);
           setShowMoreTransportOptions(tripData.transportType === 'bus' || tripData.transportType === 'car');
-          setPlaceFrom(normalizeTripPlace(tripData.placeFrom || tripData.fromAirport, tripData.transportType === 'plane' ? 'AIRPORT' : 'PLACE'));
-          setPlaceTo(normalizeTripPlace(tripData.placeTo || tripData.toAirport, tripData.transportType === 'plane' ? 'AIRPORT' : 'PLACE'));
+          const loadedTransportType = tripData.transportType as TransportType | undefined;
+          const loadedPlaceType = loadedTransportType === 'plane' ? 'AIRPORT' : 'PLACE';
+          setTransportPlaces(loadedTransportType
+            ? {
+                [loadedTransportType]: {
+                  from: normalizeTripPlace(tripData.placeFrom || tripData.fromAirport, loadedPlaceType),
+                  to: normalizeTripPlace(tripData.placeTo || tripData.toAirport, loadedPlaceType),
+                },
+              }
+            : {});
           
           // If this is a child trip, fetch parent trip name
           if (tripData.tripType === 'CHILD' && tripData.parentTripId) {
@@ -206,6 +229,28 @@ export default function TripDetailsScreen() {
     loadData();
   }, [id, user, authLoading]);
 
+  const setActivePlaceFrom = (place?: TripPlace) => {
+    if (!transportType) return;
+    setTransportPlaces(prev => ({
+      ...prev,
+      [transportType]: {
+        ...prev[transportType],
+        from: place,
+      },
+    }));
+  };
+
+  const setActivePlaceTo = (place?: TripPlace) => {
+    if (!transportType) return;
+    setTransportPlaces(prev => ({
+      ...prev,
+      [transportType]: {
+        ...prev[transportType],
+        to: place,
+      },
+    }));
+  };
+
   const handleSave = async () => {
     // Only validate trip name for parent trips
     if (!isChildTrip && !tripName.trim()) {
@@ -237,8 +282,8 @@ export default function TripDetailsScreen() {
         fromCountryId,
         toCountryId,
         transportType: transportType ?? null,
-        placeFrom: transportType && placeFrom ? placeFrom : null,
-        placeTo: transportType && placeTo ? placeTo : null,
+        placeFrom: transportType && activePlaceFrom ? activePlaceFrom : null,
+        placeTo: transportType && activePlaceTo ? activePlaceTo : null,
         ...(!isChildTrip && { name: tripName }),
       });
 
@@ -424,11 +469,7 @@ export default function TripDetailsScreen() {
                       <TouchableOpacity
                         key={option.value}
                         style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
-                        onPress={() => {
-                          setTransportType(isSelected ? undefined : option.value);
-                          setPlaceFrom(undefined);
-                          setPlaceTo(undefined);
-                        }}
+                        onPress={() => setTransportType(isSelected ? undefined : option.value)}
                         activeOpacity={0.75}
                       >
                         <Text style={[styles.optionButtonText, isSelected && styles.optionButtonTextSelected]}>
@@ -445,11 +486,7 @@ export default function TripDetailsScreen() {
                         <TouchableOpacity
                           key={option.value}
                           style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
-                          onPress={() => {
-                            setTransportType(isSelected ? undefined : option.value);
-                            setPlaceFrom(undefined);
-                            setPlaceTo(undefined);
-                          }}
+                          onPress={() => setTransportType(isSelected ? undefined : option.value)}
                           activeOpacity={0.75}
                         >
                           <Text style={[styles.optionButtonText, isSelected && styles.optionButtonTextSelected]}>
@@ -475,8 +512,8 @@ export default function TripDetailsScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>From Airport</Text>
                     <GooglePlaceAutocomplete
-                      value={placeFrom}
-                      onChangePlace={setPlaceFrom}
+                      value={activePlaceFrom}
+                      onChangePlace={setActivePlaceFrom}
                       countryId={fromCountryId}
                       placeType="AIRPORT"
                       includedPrimaryTypes={['airport']}
@@ -487,8 +524,8 @@ export default function TripDetailsScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>To Airport</Text>
                     <GooglePlaceAutocomplete
-                      value={placeTo}
-                      onChangePlace={setPlaceTo}
+                      value={activePlaceTo}
+                      onChangePlace={setActivePlaceTo}
                       countryId={toCountryId}
                       placeType="AIRPORT"
                       includedPrimaryTypes={['airport']}
@@ -501,22 +538,22 @@ export default function TripDetailsScreen() {
               {showPlaceFields && (
                 <>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>From Place</Text>
+                    <Text style={styles.label}>{placeFieldText.fromLabel}</Text>
                     <GooglePlaceAutocomplete
-                      value={placeFrom}
-                      onChangePlace={setPlaceFrom}
+                      value={activePlaceFrom}
+                      onChangePlace={setActivePlaceFrom}
                       countryId={fromCountryId}
-                      placeholder="Search for a station, port, address..."
+                      placeholder={placeFieldText.placeholder}
                     />
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>To Place</Text>
+                    <Text style={styles.label}>{placeFieldText.toLabel}</Text>
                     <GooglePlaceAutocomplete
-                      value={placeTo}
-                      onChangePlace={setPlaceTo}
+                      value={activePlaceTo}
+                      onChangePlace={setActivePlaceTo}
                       countryId={toCountryId}
-                      placeholder="Search for a station, port, address..."
+                      placeholder={placeFieldText.placeholder}
                     />
                   </View>
                 </>
