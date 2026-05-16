@@ -73,10 +73,19 @@ function createSessionToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function getGooglePlaceLocality(details: any): string | undefined {
+  const locality = details.addressComponents?.find((component: any) =>
+    Array.isArray(component.types) && component.types.includes('locality')
+  );
+
+  return locality?.longText || locality?.shortText;
+}
+
 function toTripPlace(details: any, fallbackName: string, placeType: TripPlace['type']): TripPlace {
   return {
     type: placeType,
     name: details.displayName?.text || fallbackName,
+    city: getGooglePlaceLocality(details),
     address: details.formattedAddress || details.shortFormattedAddress,
     googlePlaceId: details.id,
     googleMapsUri: details.googleMapsUri,

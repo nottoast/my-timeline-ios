@@ -10,6 +10,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
 import { TransportType, Trip } from '@/types';
 import EUPill from '@/components/EUPill';
+import { getTripRouteDisplayNames } from '@/utils/tripDisplay';
 
 export interface TimelineItem {
   trip: Trip;
@@ -84,22 +85,16 @@ export default function TripTimeline({
 
   const renderTripRoute = (trip: Trip) => {
     const transportIcon = trip.transportType ? transportIconByType[trip.transportType] : undefined;
-    const isDomesticTrip = trip.fromCountryId === trip.toCountryId;
-    const fromDisplayName = isDomesticTrip && trip.placeFrom?.city
-      ? trip.placeFrom.city
-      : getCountryName(trip.fromCountryId);
-    const toDisplayName = isDomesticTrip && trip.placeTo?.city
-      ? trip.placeTo.city
-      : getCountryName(trip.toCountryId);
+    const routeDisplayNames = getTripRouteDisplayNames(trip, getCountryName);
 
     return (
       <View style={styles.tripRouteContainer}>
-        <Text style={styles.routeCountry}>{fromDisplayName}</Text>
+        <Text style={styles.routeCountry}>{routeDisplayNames.from}</Text>
         {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
           <EUPill prefix="←" style={styles.pillInline} />
         )}
         <Text style={styles.routeArrow}> → </Text>
-        <Text style={styles.routeCountry}>{toDisplayName}</Text>
+        <Text style={styles.routeCountry}>{routeDisplayNames.to}</Text>
         {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
           <EUPill prefix="→" style={styles.pillInline} />
         )}

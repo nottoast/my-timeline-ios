@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeTripPlace } from '@/utils/places';
+import { getTripRouteDisplayNames } from '@/utils/tripDisplay';
 
 const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'plane', label: 'Plane' },
@@ -608,25 +609,31 @@ export default function TripDetailsScreen() {
               {isChildTripsExpanded && (
                 <View style={styles.childTripsList}>
                   {childTrips.map((childTrip, index) => (
-                    <TouchableOpacity
-                      key={childTrip.id}
-                      style={[
-                        styles.childTripRow,
-                        index === childTrips.length - 1 && styles.childTripRowLast
-                      ]}
-                      onPress={() => router.replace(`/trip/${childTrip.id}`)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.childTripInfo}>
-                        <Text style={styles.childTripDate}>
-                          {formatDate(new Date(childTrip.tripDate))}
-                        </Text>
-                        <Text style={styles.childTripRoute}>
-                          {getCountryName(childTrip.fromCountryId)} → {getCountryName(childTrip.toCountryId)}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={20} color="#666" />
-                    </TouchableOpacity>
+                    (() => {
+                      const routeDisplayNames = getTripRouteDisplayNames(childTrip, getCountryName);
+
+                      return (
+                        <TouchableOpacity
+                          key={childTrip.id}
+                          style={[
+                            styles.childTripRow,
+                            index === childTrips.length - 1 && styles.childTripRowLast
+                          ]}
+                          onPress={() => router.replace(`/trip/${childTrip.id}`)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.childTripInfo}>
+                            <Text style={styles.childTripDate}>
+                              {formatDate(new Date(childTrip.tripDate))}
+                            </Text>
+                            <Text style={styles.childTripRoute}>
+                              {routeDisplayNames.from} → {routeDisplayNames.to}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color="#666" />
+                        </TouchableOpacity>
+                      );
+                    })()
                   ))}
                 </View>
               )}
