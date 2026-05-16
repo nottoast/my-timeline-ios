@@ -99,13 +99,9 @@ function buildDemoTimelineItems(): TimelineItem[] {
     'demo-rome', 'Rome Adventure', futureOutbound,
     'GB', 'United Kingdom', 'IT', 'Italy',
   );
-  const futureChild = buildDemoChild(
-    'demo-rome-return', 'demo-rome', futureReturn,
-    'IT', 'Italy', 'GB', 'United Kingdom',
-  );
 
   return [
-    { trip: futureParent, children: [futureChild] },
+    { trip: futureParent, children: [] },
     { trip: pastParent, children: [pastChild] },
     { trip: movedToUkParent, children: [] },
   ];
@@ -312,16 +308,16 @@ export default function LoginScreen() {
         <Text style={styles.tagline}>Track every journey, past and future.</Text>
         <View style={styles.buttonRow}>
           <TouchableOpacity
-            style={[styles.authButton, styles.loginButton]}
-            onPress={() => setAuthMode('login')}
-          >
-            <Text style={styles.authButtonText}>Login</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.authButton, styles.registerButton]}
             onPress={() => setAuthMode('register')}
           >
             <Text style={styles.authButtonText}>Register</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.authButton, styles.loginButton]}
+            onPress={() => setAuthMode('login')}
+          >
+            <Text style={styles.authButtonText}>Login</Text>
           </TouchableOpacity>
         </View>
       </View>
