@@ -10,6 +10,19 @@ import {
 } from 'react-native';
 import { Airport, formatAirportLabel } from '@/utils/airports';
 
+const browserAutocompleteProps = Platform.OS === 'web'
+  ? ({
+      autoComplete: 'new-password',
+      importantForAutofill: 'no',
+      textContentType: 'none',
+      spellCheck: false,
+    } as const)
+  : ({
+      autoComplete: 'off',
+      importantForAutofill: 'no',
+      textContentType: 'none',
+    } as const);
+
 let WebPortal: React.FC<{ children: React.ReactNode }> | null = null;
 if (Platform.OS === 'web') {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -149,7 +162,7 @@ export default function AirportAutocomplete({
         editable={!disabled}
         autoCorrect={false}
         autoCapitalize="words"
-        autoComplete="off"
+        {...browserAutocompleteProps}
       />
 
       {isFocused && filteredAirports.length > 0 && (

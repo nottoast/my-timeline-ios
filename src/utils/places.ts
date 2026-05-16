@@ -14,7 +14,7 @@ export function createManualPlace(name: string, type: TripPlace['type']): TripPl
   return {
     type,
     name: trimmed,
-    source: 'manual',
+    source: 'MANUAL',
   };
 }
 
@@ -23,7 +23,7 @@ export function createAirportPlace(airport: Airport): TripPlace {
     type: 'AIRPORT',
     name: formatAirportLabel(airport),
     city: airport.city,
-    source: 'airport_seed',
+    source: 'AIRPORT_SEED',
   };
 }
 

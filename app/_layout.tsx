@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CountriesProvider } from '@/contexts/CountriesContext';
 import { useFonts } from 'expo-font';
@@ -69,20 +70,31 @@ export default function RootLayout() {
   }
 
   return (
-    <PaperProvider theme={theme}>
-      <AuthProvider>
-        <CountriesProvider>
-          <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a !important' }}>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="view-trips" />
-              <Stack.Screen name="profile" />
-              <Stack.Screen name="add-trip" />
-              <Stack.Screen name="trip/[id]" />
-            </Stack>
-          </View>
-        </CountriesProvider>
-      </AuthProvider>
-    </PaperProvider>
+    <>
+      <Head>
+        <title>YourTrips</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+      </Head>
+      <PaperProvider theme={theme}>
+        <AuthProvider>
+          <CountriesProvider>
+            <View style={{ flex: 1, paddingHorizontal: horizontalPadding, backgroundColor: '#1a1a1a !important' }}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="view-trips" />
+                <Stack.Screen name="profile" />
+                <Stack.Screen name="add-trip" />
+                <Stack.Screen name="trip/[id]" />
+              </Stack>
+            </View>
+          </CountriesProvider>
+        </AuthProvider>
+      </PaperProvider>
+    </>
   );
 }

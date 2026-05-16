@@ -23,7 +23,7 @@ module.exports = {
     },
     web: {
       output: "static",
-      favicon: "./assets/images/favicon.png",
+      favicon: "./assets/images/favicon.ico",
       bundler: "metro",
       template: "./web/index.html"
     },

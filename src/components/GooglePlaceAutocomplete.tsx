@@ -36,6 +36,19 @@ interface GooglePlaceAutocompleteProps {
 
 const placesApiKey = Constants.expoConfig?.extra?.googlePlacesApiKey;
 
+const browserAutocompleteProps = Platform.OS === 'web'
+  ? ({
+      autoComplete: 'new-password',
+      importantForAutofill: 'no',
+      textContentType: 'none',
+      spellCheck: false,
+    } as const)
+  : ({
+      autoComplete: 'off',
+      importantForAutofill: 'no',
+      textContentType: 'none',
+    } as const);
+
 function createSessionToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -54,7 +67,7 @@ function toTripPlace(details: any, fallbackName: string): TripPlace {
         }
       : undefined,
     googlePlace: details,
-    source: 'google',
+    source: 'GOOGLE',
   };
 }
 
@@ -153,13 +166,13 @@ export default function GooglePlaceAutocomplete({
       setIsFocused(false);
       setPredictions([]);
       const trimmed = searchText.trim();
-      onChangePlace(trimmed ? { type: 'PLACE', name: trimmed, source: 'manual' } : undefined);
+      onChangePlace(trimmed ? { type: 'PLACE', name: trimmed, source: 'MANUAL' } : undefined);
     }, 200);
   };
 
   const handleChangeText = (text: string) => {
     setSearchText(text);
-    onChangePlace(text.trim() ? { type: 'PLACE', name: text, source: 'manual' } : undefined);
+    onChangePlace(text.trim() ? { type: 'PLACE', name: text, source: 'MANUAL' } : undefined);
   };
 
   const handleSelect = async (prediction: PlacePrediction) => {
@@ -169,7 +182,7 @@ export default function GooglePlaceAutocomplete({
     setIsFocused(false);
 
     if (!placesApiKey) {
-      onChangePlace({ type: 'PLACE', name: prediction.text, source: 'manual' });
+      onChangePlace({ type: 'PLACE', name: prediction.text, source: 'MANUAL' });
       return;
     }
 
@@ -189,7 +202,7 @@ export default function GooglePlaceAutocomplete({
       onChangePlace(toTripPlace(details, prediction.text));
     } catch (error) {
       console.error('Error loading Google Place details:', error);
-      onChangePlace({ type: 'PLACE', name: prediction.text, googlePlaceId: prediction.placeId, source: 'manual' });
+      onChangePlace({ type: 'PLACE', name: prediction.text, googlePlaceId: prediction.placeId, source: 'MANUAL' });
     }
   };
 
@@ -235,7 +248,7 @@ export default function GooglePlaceAutocomplete({
           editable={!disabled}
           autoCorrect={false}
           autoCapitalize="words"
-          autoComplete="off"
+          {...browserAutocompleteProps}
         />
         {isSearching && (
           <ActivityIndicator style={styles.searchIndicator} size="small" color="#888" />

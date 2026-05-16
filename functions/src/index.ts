@@ -18,12 +18,24 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+function sanitizeTripPlaceSource(value: unknown): TripPlace['source'] | undefined {
+  if (value === 'AIRPORT_SEED' || value === 'GOOGLE' || value === 'MANUAL') {
+    return value;
+  }
+
+  if (value === 'airport_seed') return 'AIRPORT_SEED';
+  if (value === 'google') return 'GOOGLE';
+  if (value === 'manual') return 'MANUAL';
+
+  return undefined;
+}
+
 function sanitizeTripPlace(value: unknown, defaultType: TripPlace['type']): TripPlace | undefined {
   if (!value) return undefined;
 
   if (typeof value === 'string') {
     const name = value.trim();
-    return name ? { type: defaultType, name, source: 'manual' } : undefined;
+    return name ? { type: defaultType, name, source: 'MANUAL' } : undefined;
   }
 
   if (typeof value !== 'object') return undefined;
@@ -52,7 +64,8 @@ function sanitizeTripPlace(value: unknown, defaultType: TripPlace['type']): Trip
     };
   }
   if (place.googlePlace && typeof place.googlePlace === 'object') sanitized.googlePlace = place.googlePlace;
-  if (place.source === 'airport_seed' || place.source === 'google' || place.source === 'manual') sanitized.source = place.source;
+  const source = sanitizeTripPlaceSource(place.source);
+  if (source) sanitized.source = source;
 
   return sanitized;
 }

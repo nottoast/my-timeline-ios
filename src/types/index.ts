@@ -52,7 +52,7 @@ export interface TripPlace {
     longitude: number;
   };
   googlePlace?: Record<string, unknown>;
-  source?: 'airport_seed' | 'google' | 'manual';
+  source?: 'AIRPORT_SEED' | 'GOOGLE' | 'MANUAL';
 }
 
 export interface Trip {
