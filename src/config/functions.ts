@@ -1,7 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { getFunctions } from 'firebase/functions';
 import app from './firebase';
-import { UpdateUserRequest, UpdateUserResponse, CreateTripRequest, CreateTripResponse, DeleteTripRequest, DeleteTripResponse } from '@/types';
+import { UpdateUserRequest, UpdateUserResponse, CreateTripRequest, CreateTripResponse, UpdateTripRequest, UpdateTripResponse, DeleteTripRequest, DeleteTripResponse } from '@/types';
 
 // Initialize Firebase Functions with Europe region
 const functions = getFunctions(app, 'europe-west1');
@@ -58,6 +58,31 @@ export const createTrip = async (
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to create trip',
+    };
+  }
+};
+
+/**
+ * Call the updateTrip Firebase Function
+ * @param tripData - The trip data
+ * @returns Promise with the response indicating success
+ */
+export const updateTrip = async (
+  tripData: UpdateTripRequest
+): Promise<UpdateTripResponse> => {
+  try {
+    const updateTripFn = httpsCallable<UpdateTripRequest, UpdateTripResponse>(
+      functions,
+      'updateTrip'
+    );
+    
+    const result = await updateTripFn(tripData);
+    return result.data;
+  } catch (error) {
+    console.error('Error calling updateTrip function:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update trip',
     };
   }
 };

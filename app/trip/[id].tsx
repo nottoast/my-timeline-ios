@@ -14,10 +14,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { TransportType, Trip } from '@/types';
-import { deleteTrip } from '@/config/functions';
+import { deleteTrip, updateTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
@@ -37,12 +37,6 @@ const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'bus', label: 'Bus' },
   { value: 'car', label: 'Car' },
 ];
-
-function toStartOfDayTimestamp(date: Date) {
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  return Timestamp.fromDate(startOfDay);
-}
 
 export default function TripDetailsScreen() {
   const router = useRouter();
@@ -237,35 +231,21 @@ export default function TripDetailsScreen() {
     setIsSaving(true);
     
     try {
-      const tripRef = doc(db, 'trips', id);
-
-      // Compute Schengen visa status from selected countries
-      const fromCountry = countries.find(c => c.id === fromCountryId);
-      const toCountry = countries.find(c => c.id === toCountryId);
-      let tripVisaStatus: string | null = null;
-      if (fromCountry && toCountry) {
-        if (!fromCountry.isSchengen && toCountry.isSchengen) tripVisaStatus = 'ENTERED_SCHENGEN';
-        else if (fromCountry.isSchengen && !toCountry.isSchengen) tripVisaStatus = 'LEFT_SCHENGEN';
-      }
-
-      const updateData: any = {
-        tripDate: toStartOfDayTimestamp(startDate),
+      const response = await updateTrip({
+        tripId: id,
+        tripDate: startDate.toISOString(),
         fromCountryId,
         toCountryId,
-        fromCountryName: fromCountry?.name || '',
-        toCountryName: toCountry?.name || '',
-        tripVisaStatus: tripVisaStatus ?? null,
         transportType: transportType ?? null,
         placeFrom: transportType && placeFrom ? placeFrom : null,
         placeTo: transportType && placeTo ? placeTo : null,
-      };
+        ...(!isChildTrip && { name: tripName }),
+      });
 
-      // Only update name for parent trips
-      if (!isChildTrip) {
-        updateData.name = tripName;
+      if (!response.success) {
+        Alert.alert('Error', response.message || 'Failed to update trip');
+        return;
       }
-
-      await updateDoc(tripRef, updateData);
       
       // Navigate to parent trip if this is a child trip, otherwise to timeline
       if (isChildTrip && parentTripId) {

@@ -8,6 +8,8 @@ import {
   TripPlace,
   CreateTripRequest,
   CreateTripResponse,
+  UpdateTripRequest,
+  UpdateTripResponse,
   DeleteTripRequest,
   DeleteTripResponse,
 } from '../../src/types';
@@ -68,6 +70,31 @@ function sanitizeTripPlace(value: unknown, defaultType: TripPlace['type']): Trip
   if (source) sanitized.source = source;
 
   return sanitized;
+}
+
+function toStartOfDayTimestamp(value: unknown): admin.firestore.Timestamp | undefined {
+  let date: Date;
+
+  if (value instanceof admin.firestore.Timestamp) {
+    date = value.toDate();
+  } else if (typeof value === 'string' || typeof value === 'number') {
+    date = new Date(value);
+  } else if (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as { seconds?: unknown }).seconds === 'number'
+  ) {
+    date = new Date((value as { seconds: number }).seconds * 1000);
+  } else {
+    return undefined;
+  }
+
+  if (isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  date.setHours(0, 0, 0, 0);
+  return admin.firestore.Timestamp.fromDate(date);
 }
 
 /**
@@ -195,10 +222,6 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
         updateData.enableSchengenCalculations = enableSchengenCalculations;
       }
 
-      console.log('Updating user with data:', updateData);
-      console.log('countryOfResidenceId received:', countryOfResidenceId);
-      console.log('enableSchengenCalculations received:', enableSchengenCalculations);
-
       // Only update if there's data to update
       if (Object.keys(updateData).length > 0) {
         await userRef.update(updateData);
@@ -207,8 +230,6 @@ export const updateUser = onCall<UpdateUserRequest, Promise<UpdateUserResponse>>
       // Get updated user data
       const updatedUserDoc = await userRef.get();
       const userData = updatedUserDoc.data() as User;
-
-      console.log('Updated user data:', userData);
 
       return {
         success: true,
@@ -317,10 +338,14 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
       const userId = request.auth.uid;
       const now = admin.firestore.Timestamp.now();
 
-      // Convert ISO date strings to Timestamps with time set to 00:00:00
-      const tripDateObj = new Date(tripDate);
-      tripDateObj.setHours(0, 0, 0, 0);
-      const tripDateTimestamp = admin.firestore.Timestamp.fromDate(tripDateObj);
+      // Convert incoming date values to Firestore Timestamps before writing.
+      const tripDateTimestamp = toStartOfDayTimestamp(tripDate);
+      if (!tripDateTimestamp) {
+        return {
+          success: false,
+          message: 'Invalid trip date',
+        };
+      }
 
       // Handle creating a CHILD trip for an existing PARENT
       if (isChildTrip) {
@@ -390,9 +415,13 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         // If round trip, create the return trip
         let returnTrip: Trip | undefined;
         if (isRoundTrip && endDate) {
-          const endDateObj = new Date(endDate);
-          endDateObj.setHours(0, 0, 0, 0);
-          const endDateTimestamp = admin.firestore.Timestamp.fromDate(endDateObj);
+          const endDateTimestamp = toStartOfDayTimestamp(endDate);
+          if (!endDateTimestamp) {
+            return {
+              success: false,
+              message: 'Invalid end date',
+            };
+          }
 
           const returnTripRef = db.collection('trips').doc();
           const returnTripData: any = {
@@ -450,9 +479,13 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
       
       let endDateTimestamp = null;
       if (endDate) {
-        const endDateObj = new Date(endDate);
-        endDateObj.setHours(0, 0, 0, 0);
-        endDateTimestamp = admin.firestore.Timestamp.fromDate(endDateObj);
+        endDateTimestamp = toStartOfDayTimestamp(endDate);
+        if (!endDateTimestamp) {
+          return {
+            success: false,
+            message: 'Invalid end date',
+          };
+        }
       }
 
       // Create the PARENT trip
@@ -544,6 +577,145 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
       };
     } catch (error) {
       console.error('Error creating trip:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+);
+
+/**
+ * Callable Cloud Function to update an existing trip.
+ * Converts tripDate to a Firestore Timestamp before writing.
+ */
+export const updateTrip = onCall<UpdateTripRequest, Promise<UpdateTripResponse>>(
+  {
+    region: 'europe-west1',
+    cors: true,
+  },
+  async (request): Promise<UpdateTripResponse> => {
+    const data = request.data;
+
+    try {
+      if (!request.auth) {
+        return {
+          success: false,
+          message: 'Authentication required',
+        };
+      }
+
+      const {
+        tripId,
+        name,
+        tripDate,
+        fromCountryId,
+        toCountryId,
+        transportType,
+        placeFrom,
+        placeTo,
+      } = data;
+
+      if (!tripId) {
+        return {
+          success: false,
+          message: 'Trip ID is required',
+        };
+      }
+
+      if (!tripDate) {
+        return {
+          success: false,
+          message: 'Trip date is required',
+        };
+      }
+
+      if (!fromCountryId || !toCountryId) {
+        return {
+          success: false,
+          message: 'From and to countries are required',
+        };
+      }
+
+      if (transportType && !['plane', 'boat', 'train', 'bus', 'car'].includes(transportType)) {
+        return {
+          success: false,
+          message: 'Invalid transport type',
+        };
+      }
+
+      const tripDateTimestamp = toStartOfDayTimestamp(tripDate);
+      if (!tripDateTimestamp) {
+        return {
+          success: false,
+          message: 'Invalid trip date',
+        };
+      }
+
+      const fromCountry = getCountryById(fromCountryId);
+      const toCountry = getCountryById(toCountryId);
+
+      if (!fromCountry || !toCountry) {
+        return {
+          success: false,
+          message: 'Invalid country IDs',
+        };
+      }
+
+      const tripRef = db.collection('trips').doc(tripId);
+      const tripDoc = await tripRef.get();
+
+      if (!tripDoc.exists) {
+        return {
+          success: false,
+          message: 'Trip not found',
+        };
+      }
+
+      const existingTrip = tripDoc.data();
+      if (existingTrip?.userId !== request.auth.uid) {
+        return {
+          success: false,
+          message: 'Unauthorized: Trip does not belong to this user',
+        };
+      }
+
+      if (existingTrip?.tripType !== 'CHILD' && !name?.trim()) {
+        return {
+          success: false,
+          message: 'Trip name is required',
+        };
+      }
+
+      let tripVisaStatus: string | null = null;
+      if (!fromCountry.isSchengen && toCountry.isSchengen) tripVisaStatus = 'ENTERED_SCHENGEN';
+      else if (fromCountry.isSchengen && !toCountry.isSchengen) tripVisaStatus = 'LEFT_SCHENGEN';
+
+      const defaultPlaceType = transportType === 'plane' ? 'AIRPORT' : 'PLACE';
+      const updateData: Record<string, unknown> = {
+        tripDate: tripDateTimestamp,
+        fromCountryId,
+        toCountryId,
+        fromCountryName: fromCountry.name,
+        toCountryName: toCountry.name,
+        tripVisaStatus,
+        transportType: transportType ?? null,
+        placeFrom: transportType ? sanitizeTripPlace(placeFrom, defaultPlaceType) ?? null : null,
+        placeTo: transportType ? sanitizeTripPlace(placeTo, defaultPlaceType) ?? null : null,
+      };
+
+      if (existingTrip?.tripType !== 'CHILD') {
+        updateData.name = name?.trim();
+      }
+
+      await tripRef.update(updateData);
+
+      return {
+        success: true,
+        message: 'Trip updated successfully',
+      };
+    } catch (error) {
+      console.error('Error updating trip:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error occurred',

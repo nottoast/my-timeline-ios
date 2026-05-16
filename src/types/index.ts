@@ -94,6 +94,22 @@ export interface CreateTripResponse {
   message?: string;
 }
 
+export interface UpdateTripRequest {
+  tripId: string;
+  name?: string;
+  tripDate: string;
+  fromCountryId: string;
+  toCountryId: string;
+  transportType?: TransportType | null;
+  placeFrom?: TripPlace | null;
+  placeTo?: TripPlace | null;
+}
+
+export interface UpdateTripResponse {
+  success: boolean;
+  message?: string;
+}
+
 export interface DeleteTripRequest {
   tripId: string;
 }
