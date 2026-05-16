@@ -34,7 +34,25 @@ interface GooglePlaceAutocompleteProps {
   disabled?: boolean;
 }
 
-const placesApiKey = Constants.expoConfig?.extra?.googlePlacesApiKey;
+const placesApiKey =
+  process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ||
+  Constants.expoConfig?.extra?.googlePlacesApiKey;
+const placesDebugContext = {
+  hasPlacesApiKey: !!placesApiKey,
+  platform: Platform.OS,
+  configSources: {
+    hasExpoPublicPlacesKey: !!process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY,
+    hasExpoConfigPlacesKey: !!Constants.expoConfig?.extra?.googlePlacesApiKey,
+  },
+};
+
+async function getGooglePlacesError(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    return { message: await response.text() };
+  }
+}
 
 const browserAutocompleteProps = Platform.OS === 'web'
   ? ({
@@ -94,7 +112,16 @@ export default function GooglePlaceAutocomplete({
   }, [value, isFocused]);
 
   useEffect(() => {
-    if (!isFocused || !searchText.trim() || searchText.trim().length < 2 || !placesApiKey) {
+    if (!placesApiKey) {
+      if (isFocused && searchText.trim().length >= 2) {
+        console.warn('Google Places search skipped: missing GOOGLE_PLACES_API_KEY in Expo config.', placesDebugContext);
+      }
+      setPredictions([]);
+      setIsSearching(false);
+      return;
+    }
+
+    if (!isFocused || !searchText.trim() || searchText.trim().length < 2) {
       setPredictions([]);
       setIsSearching(false);
       return;
@@ -119,6 +146,15 @@ export default function GooglePlaceAutocomplete({
         });
 
         if (!response.ok) {
+          const errorBody = await getGooglePlacesError(response);
+          console.error('Google Places autocomplete request failed.', {
+            status: response.status,
+            statusText: response.statusText,
+            errorBody,
+            countryId,
+            inputLength: searchText.length,
+            ...placesDebugContext,
+          });
           throw new Error(`Places autocomplete failed: ${response.status}`);
         }
 
@@ -136,7 +172,12 @@ export default function GooglePlaceAutocomplete({
 
         setPredictions(nextPredictions);
       } catch (error) {
-        console.error('Error searching Google Places:', error);
+        console.error('Error searching Google Places:', {
+          error,
+          countryId,
+          inputLength: searchText.length,
+          ...placesDebugContext,
+        });
         setPredictions([]);
       } finally {
         setIsSearching(false);
@@ -195,13 +236,25 @@ export default function GooglePlaceAutocomplete({
       });
 
       if (!response.ok) {
+        const errorBody = await getGooglePlacesError(response);
+        console.error('Google Place details request failed.', {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody,
+          placeId: prediction.placeId,
+          ...placesDebugContext,
+        });
         throw new Error(`Place details failed: ${response.status}`);
       }
 
       const details = await response.json();
       onChangePlace(toTripPlace(details, prediction.text));
     } catch (error) {
-      console.error('Error loading Google Place details:', error);
+      console.error('Error loading Google Place details:', {
+        error,
+        placeId: prediction.placeId,
+        ...placesDebugContext,
+      });
       onChangePlace({ type: 'PLACE', name: prediction.text, googlePlaceId: prediction.placeId, source: 'MANUAL' });
     }
   };
