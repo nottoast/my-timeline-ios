@@ -6,8 +6,9 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
-import { Trip } from '@/types';
+import { TransportType, Trip } from '@/types';
 import EUPill from '@/components/EUPill';
 
 export interface TimelineItem {
@@ -31,6 +32,14 @@ interface TripTimelineProps {
   ListFooterComponent?: React.ComponentType | (() => React.ReactElement | null) | React.ReactElement | null;
   scrollEnabled?: boolean;
 }
+
+const transportIconByType: Record<TransportType, React.ComponentProps<typeof FontAwesome5>['name']> = {
+  plane: 'plane',
+  boat: 'ship',
+  train: 'train',
+  bus: 'bus',
+  car: 'car',
+};
 
 export default function TripTimeline({
   timelineItems,
@@ -73,6 +82,39 @@ export default function TripTimeline({
     }
   };
 
+  const renderTripRoute = (trip: Trip) => {
+    const transportIcon = trip.transportType ? transportIconByType[trip.transportType] : undefined;
+    const isDomesticTrip = trip.fromCountryId === trip.toCountryId;
+    const fromDisplayName = isDomesticTrip && trip.placeFrom?.city
+      ? trip.placeFrom.city
+      : getCountryName(trip.fromCountryId);
+    const toDisplayName = isDomesticTrip && trip.placeTo?.city
+      ? trip.placeTo.city
+      : getCountryName(trip.toCountryId);
+
+    return (
+      <View style={styles.tripRouteContainer}>
+        <Text style={styles.routeCountry}>{fromDisplayName}</Text>
+        {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
+          <EUPill prefix="←" style={styles.pillInline} />
+        )}
+        <Text style={styles.routeArrow}> → </Text>
+        <Text style={styles.routeCountry}>{toDisplayName}</Text>
+        {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
+          <EUPill prefix="→" style={styles.pillInline} />
+        )}
+        {transportIcon && (
+          <FontAwesome5
+            name={transportIcon}
+            size={13}
+            color="#999"
+            style={styles.transportIcon}
+          />
+        )}
+      </View>
+    );
+  };
+
   const renderChildTrip = (
     child: Trip,
     isLast: boolean,
@@ -105,17 +147,7 @@ export default function TripTimeline({
           <View style={styles.childTimelineCircle} />
         </View>
         <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
-          <View style={styles.tripRouteContainer}>
-            <Text style={styles.routeCountry}>{getCountryName(child.fromCountryId)}</Text>
-            {enableSchengenCalculations === 'enable' && child.tripVisaStatus === 'LEFT_SCHENGEN' && (
-              <EUPill prefix="←" style={styles.pillInline} />
-            )}
-            <Text style={styles.routeArrow}> → </Text>
-            <Text style={styles.routeCountry}>{getCountryName(child.toCountryId)}</Text>
-            {enableSchengenCalculations === 'enable' && child.tripVisaStatus === 'ENTERED_SCHENGEN' && (
-              <EUPill prefix="→" style={styles.pillInline} />
-            )}
-          </View>
+          {renderTripRoute(child)}
           <Text style={styles.childTripDate}>{formatDate(child.tripDate)}</Text>
         </View>
       </TouchableOpacity>
@@ -153,17 +185,7 @@ export default function TripTimeline({
           <View style={styles.childTimelineCircle} />
         </View>
         <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
-          <View style={styles.tripRouteContainer}>
-            <Text style={styles.routeCountry}>{getCountryName(trip.fromCountryId)}</Text>
-            {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'LEFT_SCHENGEN' && (
-              <EUPill prefix="←" style={styles.pillInline} />
-            )}
-            <Text style={styles.routeArrow}> → </Text>
-            <Text style={styles.routeCountry}>{getCountryName(trip.toCountryId)}</Text>
-            {enableSchengenCalculations === 'enable' && trip.tripVisaStatus === 'ENTERED_SCHENGEN' && (
-              <EUPill prefix="→" style={styles.pillInline} />
-            )}
-          </View>
+          {renderTripRoute(trip)}
           <Text style={styles.childTripDate}>{formatDate(trip.tripDate)}</Text>
         </View>
       </TouchableOpacity>
@@ -376,6 +398,9 @@ const styles = StyleSheet.create({
   },
   pillInline: {
     marginHorizontal: 3,
+  },
+  transportIcon: {
+    marginLeft: 6,
   },
   childTripDate: {
     fontSize: 12,

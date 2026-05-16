@@ -61,8 +61,8 @@ export default function AddTripScreen() {
   const activePlaceFrom = activePlaces?.from;
   const activePlaceTo = activePlaces?.to;
   const placeFieldText = {
-    fromLabel: transportType === 'boat' ? 'From Port' : transportType === 'train' ? 'From Station' : 'From Place',
-    toLabel: transportType === 'boat' ? 'To Port' : transportType === 'train' ? 'To Station' : 'To Place',
+    fromLabel: transportType === 'boat' ? 'From Port' : transportType === 'train' ? 'From Station' : 'From',
+    toLabel: transportType === 'boat' ? 'To Port' : transportType === 'train' ? 'To Station' : 'To',
     placeholder: transportType === 'boat'
       ? 'Search for a port...'
       : transportType === 'train'

@@ -3,7 +3,7 @@ import Head from 'expo-router/head';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CountriesProvider } from '@/contexts/CountriesContext';
 import { useFonts } from 'expo-font';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { LogBox, Platform, View, useWindowDimensions } from 'react-native';
@@ -39,6 +39,7 @@ export default function RootLayout() {
 
   const [loaded, error] = useFonts({
     ...Ionicons.font,
+    ...FontAwesome5.font,
     'DMSerifText-Regular': require('../assets/fonts/DMSerifText-Regular.ttf'),
   });
 
@@ -50,6 +51,13 @@ export default function RootLayout() {
         @font-face {
           font-family: 'Ionicons';
           src: url('https://unpkg.com/@expo/vector-icons@15.0.3/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+          font-weight: normal;
+          font-style: normal;
+          font-display: swap;
+        }
+        @font-face {
+          font-family: 'FontAwesome5Free-Solid';
+          src: url('https://unpkg.com/@expo/vector-icons@15.0.3/build/vendor/react-native-vector-icons/Fonts/FontAwesome5_Solid.ttf') format('truetype');
           font-weight: normal;
           font-style: normal;
           font-display: swap;
