@@ -5,6 +5,7 @@ import {
   UpdateUserRequest,
   UpdateUserResponse,
   Trip,
+  TripPlace,
   CreateTripRequest,
   CreateTripResponse,
   DeleteTripRequest,
@@ -16,6 +17,45 @@ import { getCountryById } from '../../src/utils/countries';
 admin.initializeApp();
 
 const db = admin.firestore();
+
+function sanitizeTripPlace(value: unknown, defaultType: TripPlace['type']): TripPlace | undefined {
+  if (!value) return undefined;
+
+  if (typeof value === 'string') {
+    const name = value.trim();
+    return name ? { type: defaultType, name, source: 'manual' } : undefined;
+  }
+
+  if (typeof value !== 'object') return undefined;
+
+  const place = value as Partial<TripPlace>;
+  const name = typeof place.name === 'string' ? place.name.trim() : '';
+  if (!name) return undefined;
+
+  const sanitized: TripPlace = {
+    type: place.type === 'AIRPORT' || place.type === 'PLACE' ? place.type : defaultType,
+    name,
+  };
+
+  if (typeof place.city === 'string' && place.city.trim()) sanitized.city = place.city.trim();
+  if (typeof place.address === 'string' && place.address.trim()) sanitized.address = place.address.trim();
+  if (typeof place.googlePlaceId === 'string' && place.googlePlaceId.trim()) sanitized.googlePlaceId = place.googlePlaceId.trim();
+  if (typeof place.googleMapsUri === 'string' && place.googleMapsUri.trim()) sanitized.googleMapsUri = place.googleMapsUri.trim();
+  if (
+    place.location &&
+    typeof place.location.latitude === 'number' &&
+    typeof place.location.longitude === 'number'
+  ) {
+    sanitized.location = {
+      latitude: place.location.latitude,
+      longitude: place.location.longitude,
+    };
+  }
+  if (place.googlePlace && typeof place.googlePlace === 'object') sanitized.googlePlace = place.googlePlace;
+  if (place.source === 'airport_seed' || place.source === 'google' || place.source === 'manual') sanitized.source = place.source;
+
+  return sanitized;
+}
 
 /**
  * HTTP Cloud Function (v2) to update or create a user
@@ -227,12 +267,13 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         };
       }
 
-      const normalizedPlaceFrom = transportType && typeof placeFrom === 'string'
-        ? placeFrom.trim()
-        : '';
-      const normalizedPlaceTo = transportType && typeof placeTo === 'string'
-        ? placeTo.trim()
-        : '';
+      const defaultPlaceType = transportType === 'plane' ? 'AIRPORT' : 'PLACE';
+      const normalizedPlaceFrom = transportType
+        ? sanitizeTripPlace(placeFrom, defaultPlaceType)
+        : undefined;
+      const normalizedPlaceTo = transportType
+        ? sanitizeTripPlace(placeTo, defaultPlaceType)
+        : undefined;
 
       // Get country data from utility functions
       const fromCountry = getCountryById(fromCountryId);

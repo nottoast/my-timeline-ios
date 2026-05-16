@@ -7,7 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, query, where, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,15 +18,21 @@ import TimelineSkeletonLoader from '@/components/TimelineSkeletonLoader';
 import TripTimeline, { TimelineItem } from '@/components/TripTimeline';
 import { Ionicons } from '@expo/vector-icons';
 import { computeSchengenDaysRemaining } from '@/utils/schengen';
+import { normalizeTripPlace } from '@/utils/places';
 
 const TRIPS_PER_PAGE = 50;
 
 export default function ViewTripsScreen() {
   const router = useRouter();
+  const { deletedTripId, deletedParentTripId } = useLocalSearchParams<{
+    deletedTripId?: string;
+    deletedParentTripId?: string;
+  }>();
   const { user, loading: authLoading } = useAuth();
   useCountries(); // Ensure CountriesContext is loaded for TripTimeline
   const flatListRef = useRef<FlatList>(null);
   const lastClickedTripIdRef = useRef<string | null>(null);
+  const lastDeletedSignalRef = useRef<string | null>(null);
   const hasLoadedOnceRef = useRef(false);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [childTrips, setChildTrips] = useState<Trip[]>([]);
@@ -41,6 +47,19 @@ export default function ViewTripsScreen() {
   const [enableSchengenCalculations, setEnableSchengenCalculations] = useState<'enable' | 'disable'>('disable');
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
+
+  const removeTripFromCache = useCallback((tripId: string, parentTripId?: string) => {
+    const parentId = parentTripId || tripId;
+
+    setTrips(prev => prev.filter(trip => trip.id !== tripId && trip.id !== parentId));
+    setChildTrips(prev => prev.filter(trip => trip.id !== tripId && trip.parentTripId !== parentId));
+    setTimelineItems(prev => prev
+      .filter(item => item.trip.id !== tripId && item.trip.id !== parentId)
+      .map(item => ({
+        ...item,
+        children: item.children.filter(child => child.id !== tripId && child.parentTripId !== parentId),
+      })));
+  }, []);
 
   // Load trips with pagination
   const loadTrips = useCallback(async (isRefresh = false) => {
@@ -90,8 +109,8 @@ export default function ViewTripsScreen() {
           parentTripId: data.parentTripId,
           tripVisaStatus: data.tripVisaStatus,
           transportType: data.transportType,
-          placeFrom: data.placeFrom || data.fromAirport,
-          placeTo: data.placeTo || data.toAirport,
+          placeFrom: normalizeTripPlace(data.placeFrom || data.fromAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
+          placeTo: normalizeTripPlace(data.placeTo || data.toAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
         } as Trip);
       });
 
@@ -121,8 +140,8 @@ export default function ViewTripsScreen() {
           parentTripId: data.parentTripId,
           tripVisaStatus: data.tripVisaStatus,
           transportType: data.transportType,
-          placeFrom: data.placeFrom || data.fromAirport,
-          placeTo: data.placeTo || data.toAirport,
+          placeFrom: normalizeTripPlace(data.placeFrom || data.fromAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
+          placeTo: normalizeTripPlace(data.placeTo || data.toAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
         } as Trip);
       });
 
@@ -187,8 +206,8 @@ export default function ViewTripsScreen() {
           parentTripId: data.parentTripId,
           tripVisaStatus: data.tripVisaStatus,
           transportType: data.transportType,
-          placeFrom: data.placeFrom || data.fromAirport,
-          placeTo: data.placeTo || data.toAirport,
+          placeFrom: normalizeTripPlace(data.placeFrom || data.fromAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
+          placeTo: normalizeTripPlace(data.placeTo || data.toAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
         } as Trip);
       });
 
@@ -230,6 +249,16 @@ export default function ViewTripsScreen() {
   // Restore scroll position to the last clicked trip when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      const deletedId = Array.isArray(deletedTripId) ? deletedTripId[0] : deletedTripId;
+      const deletedParentId = Array.isArray(deletedParentTripId) ? deletedParentTripId[0] : deletedParentTripId;
+      const deletedSignal = deletedId ? `${deletedId}:${deletedParentId || ''}` : null;
+
+      if (deletedId && deletedSignal !== lastDeletedSignalRef.current) {
+        lastDeletedSignalRef.current = deletedSignal;
+        lastClickedTripIdRef.current = null;
+        removeTripFromCache(deletedId, deletedParentId);
+      }
+
       // Scroll to the last clicked trip after a delay to ensure list is rendered
       if (lastClickedTripIdRef.current && timelineItems.length > 0) {
         const tripIdToScrollTo = lastClickedTripIdRef.current;
@@ -250,7 +279,7 @@ export default function ViewTripsScreen() {
           }
         }, 300);
       }
-    }, [timelineItems])
+    }, [deletedTripId, deletedParentTripId, removeTripFromCache, timelineItems])
   );
 
   // Organize trips into timeline items whenever trips or childTrips change

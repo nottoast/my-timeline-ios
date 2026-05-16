@@ -27,6 +27,7 @@ export interface UpdateUserResponse {
 
 export type TripType = 'PARENT' | 'CHILD';
 export type TransportType = 'plane' | 'boat' | 'train' | 'bus' | 'car';
+export type PlaceType = 'AIRPORT' | 'PLACE';
 
 export interface Country {
   id: string;
@@ -38,6 +39,21 @@ export interface Country {
 }
 
 export type TripVisaStatus = 'ENTERED_SCHENGEN' | 'LEFT_SCHENGEN';
+
+export interface TripPlace {
+  type: PlaceType;
+  name: string;
+  city?: string;
+  address?: string;
+  googlePlaceId?: string;
+  googleMapsUri?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  googlePlace?: Record<string, unknown>;
+  source?: 'airport_seed' | 'google' | 'manual';
+}
 
 export interface Trip {
   id: string;
@@ -52,8 +68,8 @@ export interface Trip {
   parentTripId?: string; // Set on CHILD trip, references the PARENT trip
   tripVisaStatus?: TripVisaStatus; // Set when crossing Schengen border
   transportType?: TransportType;
-  placeFrom?: string;
-  placeTo?: string;
+  placeFrom?: TripPlace;
+  placeTo?: TripPlace;
   createdAt: string;
 }
 
@@ -67,8 +83,8 @@ export interface CreateTripRequest {
   tripType?: 'PARENT' | 'CHILD'; // Optional, defaults to PARENT
   parentTripId?: string; // Required if tripType is CHILD
   transportType?: TransportType;
-  placeFrom?: string;
-  placeTo?: string;
+  placeFrom?: TripPlace;
+  placeTo?: TripPlace;
 }
 
 export interface CreateTripResponse {

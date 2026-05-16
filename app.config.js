@@ -60,6 +60,7 @@ module.exports = {
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
+      googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY,
     }
   }
 };

@@ -22,6 +22,7 @@ interface AirportAutocompleteProps {
   airports: Airport[];
   value: string;
   onChangeText: (value: string) => void;
+  onSelectAirport?: (airport: Airport) => void;
   countryId?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -31,6 +32,7 @@ export default function AirportAutocomplete({
   airports,
   value,
   onChangeText,
+  onSelectAirport,
   countryId,
   placeholder = 'Start typing airport name or code...',
   disabled = false,
@@ -108,6 +110,7 @@ export default function AirportAutocomplete({
     setFilteredAirports([]);
     setIsFocused(false);
     onChangeText(label);
+    onSelectAirport?.(airport);
   };
 
   const handleChangeText = (text: string) => {
