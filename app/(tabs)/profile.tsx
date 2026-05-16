@@ -16,9 +16,7 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     try {
-      console.log('Sign out initiated');
       await signOut();
-      console.log('Sign out complete');
       // Force navigation back to root
       router.replace('/');
     } catch (error) {
@@ -48,10 +46,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.signOutButton}
-          onPress={() => {
-            console.log('Button pressed!');
-            handleSignOut();
-          }}
+          onPress={handleSignOut}
           activeOpacity={0.7}
         >
           <Text style={styles.signOutButtonText}>Sign Out</Text>

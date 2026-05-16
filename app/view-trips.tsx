@@ -64,7 +64,6 @@ export default function ViewTripsScreen() {
   // Load trips with pagination
   const loadTrips = useCallback(async (isRefresh = false) => {
     if (!user) {
-      console.log('No user found, skipping load');
       setError('No user logged in');
       setLoading(false);
       return;
@@ -78,7 +77,6 @@ export default function ViewTripsScreen() {
     setError(null);
 
     try {
-      console.log('Loading trips for user:', user.uid);
       const tripsRef = collection(db, 'trips');
       
       // Query for parent trips with pagination
@@ -145,9 +143,6 @@ export default function ViewTripsScreen() {
         } as Trip);
       });
 
-      console.log('Loaded parent trips:', fetchedTrips.length);
-      console.log('Loaded child trips:', fetchedChildTrips.length);
-      
       setTrips(fetchedTrips);
       setChildTrips(fetchedChildTrips);
       setLastDoc(parentSnapshot.docs[parentSnapshot.docs.length - 1] || null);
@@ -175,7 +170,6 @@ export default function ViewTripsScreen() {
     setLoadingMore(true);
 
     try {
-      console.log('Loading more trips...');
       const tripsRef = collection(db, 'trips');
       
       const parentQuery = query(
@@ -211,8 +205,6 @@ export default function ViewTripsScreen() {
         } as Trip);
       });
 
-      console.log('Loaded additional trips:', newTrips.length);
-      
       setTrips(prev => [...prev, ...newTrips]);
       setLastDoc(parentSnapshot.docs[parentSnapshot.docs.length - 1] || null);
       setHasMore(parentSnapshot.docs.length === TRIPS_PER_PAGE);
@@ -230,7 +222,6 @@ export default function ViewTripsScreen() {
     }
 
     if (!user) {
-      console.log('No user found, skipping load');
       setError('No user logged in');
       setLoading(false);
       return;
@@ -265,7 +256,6 @@ export default function ViewTripsScreen() {
         
         setTimeout(() => {
           const index = timelineItems.findIndex(item => item.trip.id === tripIdToScrollTo);
-          console.log('Attempting to scroll to trip:', tripIdToScrollTo, 'at index:', index);
           
           if (index !== -1) {
             flatListRef.current?.scrollToIndex({
@@ -343,7 +333,6 @@ export default function ViewTripsScreen() {
   const handleTripPress = (tripId: string, parentTripId?: string) => {
     // Save the parent trip ID for scroll restoration (or the trip ID itself if it's a parent)
     const scrollToTripId = parentTripId || tripId;
-    console.log('Saving trip ID for scroll restoration:', scrollToTripId);
     lastClickedTripIdRef.current = scrollToTripId;
     router.push(`/trip/${tripId}`);
   };

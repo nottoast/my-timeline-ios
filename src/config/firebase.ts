@@ -15,22 +15,10 @@ const firebaseConfig = {
   measurementId: Constants.expoConfig?.extra?.firebaseMeasurementId,
 };
 
-// Log configuration status (without exposing sensitive data)
-console.log('Firebase Config Status:', {
-  hasApiKey: !!firebaseConfig.apiKey,
-  hasAuthDomain: !!firebaseConfig.authDomain,
-  hasProjectId: !!firebaseConfig.projectId,
-  hasStorageBucket: !!firebaseConfig.storageBucket,
-  hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
-  hasAppId: !!firebaseConfig.appId,
-  projectId: firebaseConfig.projectId, // Safe to log
-});
-
 // Validate required config
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId) {
-  console.error('❌ Firebase configuration is incomplete!');
+  console.error('Firebase configuration is incomplete!');
   console.error('Please ensure your .env file has all required values.');
-  console.error('Available extra config:', Constants.expoConfig?.extra);
 }
 
 // Initialize Firebase only if it hasn't been initialized already

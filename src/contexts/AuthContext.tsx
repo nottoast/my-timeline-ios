@@ -42,16 +42,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const response = await updateUser(username, email, countryId);
           
-          if (response.success) {
-            console.log('User created/retrieved:', response.user);
-          } else {
+          if (!response.success) {
             console.warn('Failed to create user in Firestore:', response.message);
-            // Continue anyway - user is authenticated
           }
         } catch (error: any) {
-          // If functions aren't deployed or there's a network issue, just log and continue
           console.warn('Could not call updateUser function:', error?.code || error?.message || error);
-          console.log('User is still authenticated, continuing without Firestore user doc');
         }
       }
     });

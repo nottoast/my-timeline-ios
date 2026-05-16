@@ -66,16 +66,12 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      console.log('Saving profile with username:', username);
-      console.log('Saving profile with countryOfResidenceId:', countryOfResidenceId);
-      console.log('Saving profile with enableSchengenCalculations:', enableSchengenCalculations);
       const response = await updateUser(
         username || undefined,
         undefined,
         countryOfResidenceId || undefined,
         enableSchengenCalculations
       );
-      console.log('Update response:', response);
       
       if (response.success) {
         Alert.alert('Success', 'Profile updated successfully!');
@@ -98,9 +94,7 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     try {
-      console.log('Sign out initiated');
       await signOut();
-      console.log('Sign out complete');
       // Force navigation back to root
       router.replace('/');
     } catch (error) {
@@ -180,10 +174,7 @@ export default function ProfileScreen() {
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={[styles.button, styles.signOutButton]}
-                onPress={() => {
-                  console.log('Button pressed!');
-                  handleSignOut();
-                }}
+                onPress={handleSignOut}
                 activeOpacity={0.7}
               >
                 <Text style={styles.buttonText}>Sign Out</Text>

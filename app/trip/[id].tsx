@@ -14,28 +14,35 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { TransportType, Trip } from '@/types';
 import { deleteTrip } from '@/config/functions';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
-import AirportAutocomplete from '@/components/AirportAutocomplete';
 import GooglePlaceAutocomplete from '@/components/GooglePlaceAutocomplete';
 import { Ionicons } from '@expo/vector-icons';
 import { useCountries } from '@/contexts/CountriesContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { WELL_KNOWN_AIRPORTS } from '@/utils/airports';
-import { createAirportPlace, createManualPlace, getPlaceDisplayName, normalizeTripPlace } from '@/utils/places';
+import { normalizeTripPlace } from '@/utils/places';
 
 const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'plane', label: 'Plane' },
   { value: 'boat', label: 'Boat' },
   { value: 'train', label: 'Train' },
+];
+
+const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'bus', label: 'Bus' },
   { value: 'car', label: 'Car' },
 ];
+
+function toStartOfDayTimestamp(date: Date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  return Timestamp.fromDate(startOfDay);
+}
 
 export default function TripDetailsScreen() {
   const router = useRouter();
@@ -53,6 +60,7 @@ export default function TripDetailsScreen() {
   const [endDate, setEndDate] = useState(new Date());
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [transportType, setTransportType] = useState<TransportType | undefined>();
+  const [showMoreTransportOptions, setShowMoreTransportOptions] = useState(false);
   const [placeFrom, setPlaceFrom] = useState<Trip['placeFrom']>();
   const [placeTo, setPlaceTo] = useState<Trip['placeTo']>();
   const isPlaneTrip = transportType === 'plane';
@@ -100,6 +108,7 @@ export default function TripDetailsScreen() {
         setParentTripId('');
         setTripType('PARENT');
         setTransportType(undefined);
+        setShowMoreTransportOptions(false);
         setPlaceFrom(undefined);
         setPlaceTo(undefined);
 
@@ -109,13 +118,12 @@ export default function TripDetailsScreen() {
         
         if (tripDoc.exists()) {
           const tripData = tripDoc.data();
-          console.log('Loaded trip data:', tripData);
-          console.log('Trip date type:', typeof tripData.tripDate, tripData.tripDate);
           
           setTripName(tripData.name || '');
           setTripType(tripData.tripType || 'PARENT');
           setIsChildTrip(tripData.tripType === 'CHILD');
           setTransportType(tripData.transportType);
+          setShowMoreTransportOptions(tripData.transportType === 'bus' || tripData.transportType === 'car');
           setPlaceFrom(normalizeTripPlace(tripData.placeFrom || tripData.fromAirport, tripData.transportType === 'plane' ? 'AIRPORT' : 'PLACE'));
           setPlaceTo(normalizeTripPlace(tripData.placeTo || tripData.toAirport, tripData.transportType === 'plane' ? 'AIRPORT' : 'PLACE'));
           
@@ -180,8 +188,6 @@ export default function TripDetailsScreen() {
             tripDateValue = new Date();
           }
           
-          console.log('Converted trip date:', tripDateValue);
-          
           if (isNaN(tripDateValue.getTime())) {
             console.error('Invalid date after conversion');
             tripDateValue = new Date();
@@ -209,22 +215,22 @@ export default function TripDetailsScreen() {
   const handleSave = async () => {
     // Only validate trip name for parent trips
     if (!isChildTrip && !tripName.trim()) {
-      console.log('Error: Please enter a trip name');
+      Alert.alert('Error', 'Please enter a trip name');
       return;
     }
 
     if (!fromCountryId) {
-      console.log('Error: Please select a from country');
+      Alert.alert('Error', 'Please select a from country');
       return;
     }
 
     if (!toCountryId) {
-      console.log('Error: Please select a to country');
+      Alert.alert('Error', 'Please select a to country');
       return;
     }
 
     if (isRoundTrip && endDate <= startDate) {
-      console.log('Error: End date must be after start date');
+      Alert.alert('Error', 'End date must be after start date');
       return;
     }
 
@@ -243,7 +249,7 @@ export default function TripDetailsScreen() {
       }
 
       const updateData: any = {
-        tripDate: startDate.toISOString(),
+        tripDate: toStartOfDayTimestamp(startDate),
         fromCountryId,
         toCountryId,
         fromCountryName: fromCountry?.name || '',
@@ -451,6 +457,36 @@ export default function TripDetailsScreen() {
                       </TouchableOpacity>
                     );
                   })}
+                  {showMoreTransportOptions ? (
+                    MORE_TRANSPORT_OPTIONS.map((option) => {
+                      const isSelected = transportType === option.value;
+
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
+                          onPress={() => {
+                            setTransportType(isSelected ? undefined : option.value);
+                            setPlaceFrom(undefined);
+                            setPlaceTo(undefined);
+                          }}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.optionButtonText, isSelected && styles.optionButtonTextSelected]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.optionButton}
+                      onPress={() => setShowMoreTransportOptions(true)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.optionButtonText}>More...</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
@@ -458,24 +494,24 @@ export default function TripDetailsScreen() {
                 <>
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>From Airport</Text>
-                    <AirportAutocomplete
-                      airports={WELL_KNOWN_AIRPORTS}
-                      value={getPlaceDisplayName(placeFrom)}
-                      onChangeText={(text) => setPlaceFrom(createManualPlace(text, 'AIRPORT'))}
-                      onSelectAirport={(airport) => setPlaceFrom(createAirportPlace(airport))}
+                    <GooglePlaceAutocomplete
+                      value={placeFrom}
+                      onChangePlace={setPlaceFrom}
                       countryId={fromCountryId}
+                      placeType="AIRPORT"
+                      includedPrimaryTypes={['airport']}
                       placeholder="Airport name, city, or code..."
                     />
                   </View>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>To Airport</Text>
-                    <AirportAutocomplete
-                      airports={WELL_KNOWN_AIRPORTS}
-                      value={getPlaceDisplayName(placeTo)}
-                      onChangeText={(text) => setPlaceTo(createManualPlace(text, 'AIRPORT'))}
-                      onSelectAirport={(airport) => setPlaceTo(createAirportPlace(airport))}
+                    <GooglePlaceAutocomplete
+                      value={placeTo}
+                      onChangePlace={setPlaceTo}
                       countryId={toCountryId}
+                      placeType="AIRPORT"
+                      includedPrimaryTypes={['airport']}
                       placeholder="Airport name, city, or code..."
                     />
                   </View>
@@ -602,10 +638,7 @@ export default function TripDetailsScreen() {
           <View style={styles.bottomButtons}>
             <TouchableOpacity
               style={[styles.deleteButton, isDeleting && styles.deleteButtonDisabled]}
-              onPress={() => {
-                console.log('Delete button pressed!');
-                handleDelete();
-              }}
+              onPress={handleDelete}
               disabled={isDeleting || isSaving}
             >
               <Text style={styles.deleteButtonText}>

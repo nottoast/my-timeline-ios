@@ -6,7 +6,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import { LogBox, Platform, View, useWindowDimensions } from 'react-native';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
 import { en, registerTranslation } from 'react-native-paper-dates';
 
@@ -15,6 +15,11 @@ SplashScreen.preventAutoHideAsync();
 
 // Register date picker localization
 registerTranslation('en-GB', en);
+
+LogBox.ignoreLogs([
+  '"shadow*" style props are deprecated. Use "boxShadow".',
+  'props.pointerEvents is deprecated. Use style.pointerEvents',
+]);
 
 // Custom theme with our blue color
 const theme = {

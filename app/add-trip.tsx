@@ -19,17 +19,17 @@ import { db } from '@/config/firebase';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
-import AirportAutocomplete from '@/components/AirportAutocomplete';
 import GooglePlaceAutocomplete from '@/components/GooglePlaceAutocomplete';
 import { useCountries } from '@/contexts/CountriesContext';
 import { TransportType, TripPlace } from '@/types';
-import { WELL_KNOWN_AIRPORTS } from '@/utils/airports';
-import { createAirportPlace, createManualPlace, getPlaceDisplayName } from '@/utils/places';
 
 const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'plane', label: 'Plane' },
   { value: 'boat', label: 'Boat' },
   { value: 'train', label: 'Train' },
+];
+
+const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'bus', label: 'Bus' },
   { value: 'car', label: 'Car' },
 ];
@@ -46,6 +46,7 @@ export default function AddTripScreen() {
   const [isRoundTrip, setIsRoundTrip] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [transportType, setTransportType] = useState<TransportType | undefined>();
+  const [showMoreTransportOptions, setShowMoreTransportOptions] = useState(false);
   const [placeFrom, setPlaceFrom] = useState<TripPlace | undefined>();
   const [placeTo, setPlaceTo] = useState<TripPlace | undefined>();
   const canCreateRoundTrip = !isChildTrip;
@@ -94,30 +95,23 @@ export default function AddTripScreen() {
   };
 
   const handleSave = async () => {
-    console.log('handleSave called');
-    console.log('Trip data:', { tripName, fromCountryId, toCountryId, isRoundTrip: shouldCreateRoundTrip, startDate, endDate, isChildTrip, parentTripId });
-    
     // Only validate trip name for parent trips
     if (!isChildTrip && !tripName.trim()) {
-      console.log('Validation failed: No trip name');
       Alert.alert('Error', 'Please enter a trip name');
       return;
     }
 
     if (!fromCountryId) {
-      console.log('Validation failed: No from country');
       Alert.alert('Error', 'Please select a from country');
       return;
     }
 
     if (!toCountryId) {
-      console.log('Validation failed: No to country');
       Alert.alert('Error', 'Please select a to country');
       return;
     }
 
     if (shouldCreateRoundTrip && endDate <= startDate) {
-      console.log('Validation failed: End date before start date');
       Alert.alert('Error', 'End date must be after start date');
       return;
     }
@@ -144,12 +138,10 @@ export default function AddTripScreen() {
       tripData.parentTripId = parentTripId;
     }
 
-    console.log('Calling createTrip with:', tripData);
     setIsSaving(true);
     
     try {
       const response = await createTrip(tripData);
-      console.log('createTrip response:', response);
       
       if (response.success && response.trip) {
         Alert.alert('Success', 'Trip created successfully!');
@@ -273,6 +265,32 @@ export default function AddTripScreen() {
                       </TouchableOpacity>
                     );
                   })}
+                  {showMoreTransportOptions ? (
+                    MORE_TRANSPORT_OPTIONS.map((option) => {
+                      const isSelected = transportType === option.value;
+
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[styles.optionButton, isSelected && styles.optionButtonSelected]}
+                          onPress={() => setTransportType(isSelected ? undefined : option.value)}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.optionButtonText, isSelected && styles.optionButtonTextSelected]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.optionButton}
+                      onPress={() => setShowMoreTransportOptions(true)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.optionButtonText}>More...</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
@@ -280,24 +298,24 @@ export default function AddTripScreen() {
                 <>
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>From Airport</Text>
-                    <AirportAutocomplete
-                      airports={WELL_KNOWN_AIRPORTS}
-                      value={getPlaceDisplayName(placeFrom)}
-                      onChangeText={(text) => setPlaceFrom(createManualPlace(text, 'AIRPORT'))}
-                      onSelectAirport={(airport) => setPlaceFrom(createAirportPlace(airport))}
+                    <GooglePlaceAutocomplete
+                      value={placeFrom}
+                      onChangePlace={setPlaceFrom}
                       countryId={fromCountryId}
+                      placeType="AIRPORT"
+                      includedPrimaryTypes={['airport']}
                       placeholder="Airport name, city, or code..."
                     />
                   </View>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>To Airport</Text>
-                    <AirportAutocomplete
-                      airports={WELL_KNOWN_AIRPORTS}
-                      value={getPlaceDisplayName(placeTo)}
-                      onChangeText={(text) => setPlaceTo(createManualPlace(text, 'AIRPORT'))}
-                      onSelectAirport={(airport) => setPlaceTo(createAirportPlace(airport))}
+                    <GooglePlaceAutocomplete
+                      value={placeTo}
+                      onChangePlace={setPlaceTo}
                       countryId={toCountryId}
+                      placeType="AIRPORT"
+                      includedPrimaryTypes={['airport']}
                       placeholder="Airport name, city, or code..."
                     />
                   </View>

@@ -30,6 +30,8 @@ interface GooglePlaceAutocompleteProps {
   value?: TripPlace;
   onChangePlace: (place?: TripPlace) => void;
   countryId?: string;
+  placeType?: TripPlace['type'];
+  includedPrimaryTypes?: string[];
   placeholder?: string;
   disabled?: boolean;
 }
@@ -71,9 +73,9 @@ function createSessionToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function toTripPlace(details: any, fallbackName: string): TripPlace {
+function toTripPlace(details: any, fallbackName: string, placeType: TripPlace['type']): TripPlace {
   return {
-    type: 'PLACE',
+    type: placeType,
     name: details.displayName?.text || fallbackName,
     address: details.formattedAddress || details.shortFormattedAddress,
     googlePlaceId: details.id,
@@ -93,6 +95,8 @@ export default function GooglePlaceAutocomplete({
   value,
   onChangePlace,
   countryId,
+  placeType = 'PLACE',
+  includedPrimaryTypes,
   placeholder = 'Start typing a place...',
   disabled = false,
 }: GooglePlaceAutocompleteProps) {
@@ -104,6 +108,7 @@ export default function GooglePlaceAutocomplete({
   const containerRef = useRef<View>(null);
   const [dropdownMetrics, setDropdownMetrics] = useState<{ top: number; left: number; width: number } | null>(null);
   const justSelectedRef = useRef(false);
+  const includedPrimaryTypesKey = includedPrimaryTypes?.join('|') || '';
 
   useEffect(() => {
     if (!isFocused) {
@@ -131,6 +136,9 @@ export default function GooglePlaceAutocomplete({
       setIsSearching(true);
 
       try {
+        const searchIncludedPrimaryTypes = includedPrimaryTypesKey
+          ? includedPrimaryTypesKey.split('|')
+          : undefined;
         const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
           method: 'POST',
           headers: {
@@ -142,6 +150,7 @@ export default function GooglePlaceAutocomplete({
             input: searchText,
             sessionToken,
             ...(countryId && { includedRegionCodes: [countryId] }),
+            ...(searchIncludedPrimaryTypes && { includedPrimaryTypes: searchIncludedPrimaryTypes }),
           }),
         });
 
@@ -185,7 +194,7 @@ export default function GooglePlaceAutocomplete({
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [countryId, isFocused, searchText, sessionToken]);
+  }, [countryId, includedPrimaryTypesKey, isFocused, searchText, sessionToken]);
 
   const handleFocus = () => {
     setIsFocused(true);
@@ -207,13 +216,13 @@ export default function GooglePlaceAutocomplete({
       setIsFocused(false);
       setPredictions([]);
       const trimmed = searchText.trim();
-      onChangePlace(trimmed ? { type: 'PLACE', name: trimmed, source: 'MANUAL' } : undefined);
+      onChangePlace(trimmed ? { type: placeType, name: trimmed, source: 'MANUAL' } : undefined);
     }, 200);
   };
 
   const handleChangeText = (text: string) => {
     setSearchText(text);
-    onChangePlace(text.trim() ? { type: 'PLACE', name: text, source: 'MANUAL' } : undefined);
+    onChangePlace(text.trim() ? { type: placeType, name: text, source: 'MANUAL' } : undefined);
   };
 
   const handleSelect = async (prediction: PlacePrediction) => {
@@ -223,7 +232,7 @@ export default function GooglePlaceAutocomplete({
     setIsFocused(false);
 
     if (!placesApiKey) {
-      onChangePlace({ type: 'PLACE', name: prediction.text, source: 'MANUAL' });
+      onChangePlace({ type: placeType, name: prediction.text, source: 'MANUAL' });
       return;
     }
 
@@ -248,14 +257,14 @@ export default function GooglePlaceAutocomplete({
       }
 
       const details = await response.json();
-      onChangePlace(toTripPlace(details, prediction.text));
+      onChangePlace(toTripPlace(details, prediction.text, placeType));
     } catch (error) {
       console.error('Error loading Google Place details:', {
         error,
         placeId: prediction.placeId,
         ...placesDebugContext,
       });
-      onChangePlace({ type: 'PLACE', name: prediction.text, googlePlaceId: prediction.placeId, source: 'MANUAL' });
+      onChangePlace({ type: placeType, name: prediction.text, googlePlaceId: prediction.placeId, source: 'MANUAL' });
     }
   };
 
