@@ -26,7 +26,7 @@ export interface UpdateUserResponse {
 }
 
 export type TripType = 'PARENT' | 'CHILD';
-export type TransportType = 'plane' | 'boat' | 'train' | 'bus' | 'car';
+export type TransportType = 'plane' | 'boat' | 'train' | 'bus' | 'car' | 'taxi' | 'bike';
 export type PlaceType = 'AIRPORT' | 'PLACE';
 
 export interface Country {

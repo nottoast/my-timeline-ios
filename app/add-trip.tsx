@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,14 +14,16 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createTrip } from '@/config/functions';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import CustomHeader from '@/components/CustomHeader';
 import PaperDatePicker from '@/components/PaperDatePicker';
 import CountryAutocomplete from '@/components/CountryAutocomplete';
 import GooglePlaceAutocomplete from '@/components/GooglePlaceAutocomplete';
 import { useCountries } from '@/contexts/CountriesContext';
-import { TransportType, TripPlace } from '@/types';
+import { TransportType, Trip, TripPlace } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { normalizeTripPlace } from '@/utils/places';
 
 const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'plane', label: 'Plane' },
@@ -31,7 +33,9 @@ const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
 
 const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'bus', label: 'Bus' },
+  { value: 'taxi', label: 'Taxi' },
   { value: 'car', label: 'Car' },
+  { value: 'bike', label: 'Bike' },
 ];
 
 type TransportPlaces = Partial<Record<TransportType, {
@@ -43,8 +47,11 @@ export default function AddTripScreen() {
   const router = useRouter();
   const { parentTripId } = useLocalSearchParams<{ parentTripId?: string }>();
   const { countries, loading: loadingCountries, getCountryFullName } = useCountries();
+  const { user } = useAuth();
   const [tripName, setTripName] = useState('');
   const [parentTripName, setParentTripName] = useState('');
+  const [parentTrip, setParentTrip] = useState<Trip | null>(null);
+  const [existingChildTrips, setExistingChildTrips] = useState<Trip[]>([]);
   const [isChildTrip, setIsChildTrip] = useState(false);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
@@ -73,18 +80,51 @@ export default function AddTripScreen() {
   // Country selection state
   const [fromCountryId, setFromCountryId] = useState('');
   const [toCountryId, setToCountryId] = useState('');
+  const userEditedFromCountryRef = useRef(false);
+  const userEditedToCountryRef = useRef(false);
+
+  const toTrip = (id: string, data: any): Trip => ({
+    id,
+    userId: data.userId,
+    tripType: data.tripType,
+    name: data.name,
+    tripDate: data.tripDate?.toDate ? data.tripDate.toDate().toISOString() : data.tripDate,
+    fromCountryId: data.fromCountryId,
+    fromCountryName: data.fromCountryName,
+    toCountryId: data.toCountryId,
+    toCountryName: data.toCountryName,
+    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+    parentTripId: data.parentTripId,
+    tripVisaStatus: data.tripVisaStatus,
+    transportType: data.transportType,
+    placeFrom: normalizeTripPlace(data.placeFrom || data.fromAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
+    placeTo: normalizeTripPlace(data.placeTo || data.toAirport, data.transportType === 'plane' ? 'AIRPORT' : 'PLACE'),
+  } as Trip);
 
   // Fetch parent trip if parentTripId is provided
   useEffect(() => {
     const fetchParentTrip = async () => {
-      if (parentTripId) {
+      if (parentTripId && user) {
         try {
           const parentTripRef = doc(db, 'trips', parentTripId);
           const parentTripDoc = await getDoc(parentTripRef);
           if (parentTripDoc.exists()) {
             const parentData = parentTripDoc.data();
+            setParentTrip(toTrip(parentTripDoc.id, parentData));
             setParentTripName(parentData.name || '');
             setIsChildTrip(true);
+
+            const childTripsQuery = query(
+              collection(db, 'trips'),
+              where('userId', '==', user.uid),
+              where('parentTripId', '==', parentTripId),
+              where('tripType', '==', 'CHILD')
+            );
+            const childTripsSnapshot = await getDocs(childTripsQuery);
+            const fetchedChildTrips = childTripsSnapshot.docs.map((childDoc) =>
+              toTrip(childDoc.id, childDoc.data())
+            );
+            setExistingChildTrips(fetchedChildTrips);
           }
         } catch (error) {
           console.error('Error fetching parent trip:', error);
@@ -93,7 +133,40 @@ export default function AddTripScreen() {
     };
 
     fetchParentTrip();
-  }, [parentTripId]);
+  }, [parentTripId, user]);
+
+  useEffect(() => {
+    if (!isChildTrip || !parentTrip) return;
+
+    const selectedTime = startDate.getTime();
+    const sortedLegs = [parentTrip, ...existingChildTrips]
+      .sort((a, b) => new Date(a.tripDate).getTime() - new Date(b.tripDate).getTime());
+
+    const previousLegs = sortedLegs.filter((trip) => new Date(trip.tripDate).getTime() <= selectedTime);
+    const previousLeg = previousLegs[previousLegs.length - 1];
+    const nextLeg = sortedLegs.find((trip) => new Date(trip.tripDate).getTime() > selectedTime);
+
+    const inferredFromCountryId = previousLeg?.toCountryId || parentTrip.fromCountryId;
+    const inferredToCountryId = nextLeg?.fromCountryId;
+
+    if (!userEditedFromCountryRef.current && inferredFromCountryId) {
+      setFromCountryId(inferredFromCountryId);
+    }
+
+    if (!userEditedToCountryRef.current) {
+      setToCountryId(inferredToCountryId || '');
+    }
+  }, [existingChildTrips, isChildTrip, parentTrip, startDate]);
+
+  const handleFromCountrySelect = (countryId: string) => {
+    userEditedFromCountryRef.current = true;
+    setFromCountryId(countryId);
+  };
+
+  const handleToCountrySelect = (countryId: string) => {
+    userEditedToCountryRef.current = true;
+    setToCountryId(countryId);
+  };
 
   const handleRoundTripToggle = (value: boolean) => {
     setIsRoundTrip(value);
@@ -236,30 +309,6 @@ export default function AddTripScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>From Country</Text>
-                <CountryAutocomplete
-                  countries={countries}
-                  value={fromCountryId}
-                  onSelect={setFromCountryId}
-                  placeholder="Start typing country name..."
-                  disabled={loadingCountries}
-                  getCountryName={getCountryFullName}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>To Country</Text>
-                <CountryAutocomplete
-                  countries={countries}
-                  value={toCountryId}
-                  onSelect={setToCountryId}
-                  placeholder="Start typing country name..."
-                  disabled={loadingCountries}
-                  getCountryName={getCountryFullName}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Start Date</Text>
                 <PaperDatePicker
                   value={startDate}
@@ -273,6 +322,30 @@ export default function AddTripScreen() {
                     }
                   }}
 
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>From Country</Text>
+                <CountryAutocomplete
+                  countries={countries}
+                  value={fromCountryId}
+                  onSelect={handleFromCountrySelect}
+                  placeholder="Start typing country name..."
+                  disabled={loadingCountries}
+                  getCountryName={getCountryFullName}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>To Country</Text>
+                <CountryAutocomplete
+                  countries={countries}
+                  value={toCountryId}
+                  onSelect={handleToCountrySelect}
+                  placeholder="Start typing country name..."
+                  disabled={loadingCountries}
+                  getCountryName={getCountryFullName}
                 />
               </View>
             </View>

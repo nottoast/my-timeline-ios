@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -36,7 +37,9 @@ const TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
 
 const MORE_TRANSPORT_OPTIONS: { value: TransportType; label: string }[] = [
   { value: 'bus', label: 'Bus' },
+  { value: 'taxi', label: 'Taxi' },
   { value: 'car', label: 'Car' },
+  { value: 'bike', label: 'Bike' },
 ];
 
 type TransportPlaces = Partial<Record<TransportType, {
@@ -54,6 +57,7 @@ export default function TripDetailsScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const [tripName, setTripName] = useState('');
   const [startDate, setStartDate] = useState(new Date());
@@ -310,7 +314,7 @@ export default function TripDetailsScreen() {
     router.back();
   };
 
-  const handleDelete = async () => {
+  const performDelete = async () => {
     setIsDeleting(true);
     
     try {
@@ -340,6 +344,36 @@ export default function TripDetailsScreen() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleDelete = () => {
+    if (Platform.OS === 'web') {
+      setShowDeleteConfirm(true);
+      return;
+    }
+
+    Alert.alert(
+      'Delete trip?',
+      'Are you sure you want to delete this trip? This cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void performDelete();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteConfirm(false);
+    void performDelete();
   };
 
   const formatDate = (date: Date) => {
@@ -418,6 +452,22 @@ export default function TripDetailsScreen() {
               </View>
 
               <View style={styles.inputGroup}>
+                <Text style={styles.label}>Date</Text>
+                <PaperDatePicker
+                  value={startDate}
+                  onChange={(selectedDate) => {
+                    setStartDate(selectedDate);
+                    if (isRoundTrip) {
+                      const oneWeekLater = new Date(selectedDate);
+                      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+                      setEndDate(oneWeekLater);
+                    }
+                  }}
+
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
                 <Text style={styles.label}>From Country</Text>
                 <CountryAutocomplete
                   countries={countries}
@@ -438,22 +488,6 @@ export default function TripDetailsScreen() {
                   placeholder="Start typing country name..."
                   disabled={loadingCountries}
                   getCountryName={getCountryFullName}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Date</Text>
-                <PaperDatePicker
-                  value={startDate}
-                  onChange={(selectedDate) => {
-                    setStartDate(selectedDate);
-                    if (isRoundTrip) {
-                      const oneWeekLater = new Date(selectedDate);
-                      oneWeekLater.setDate(oneWeekLater.getDate() + 7);
-                      setEndDate(oneWeekLater);
-                    }
-                  }}
-
                 />
               </View>
             </View>
@@ -589,7 +623,7 @@ export default function TripDetailsScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.childTripsTitle}>
-                    {childTrips.length} related trip{childTrips.length !== 1 ? 's' : ''}
+                    Trip has {childTrips.length} additonal leg{childTrips.length !== 1 ? 's' : ''}
                   </Text>
                   <Ionicons 
                     name={isChildTripsExpanded ? "chevron-up" : "chevron-down"} 
@@ -645,7 +679,7 @@ export default function TripDetailsScreen() {
             <View style={styles.childTripsCard}>
               <View style={styles.childTripsHeaderRow}>
                 <Text style={styles.childTripsTitle}>
-                  No related trips
+                  No additional legs
                 </Text>
                 <TouchableOpacity
                   style={styles.addTripButton}
@@ -682,6 +716,39 @@ export default function TripDetailsScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={showDeleteConfirm}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDeleteConfirm(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.deleteConfirmModal}>
+              <Text style={styles.deleteConfirmTitle}>Delete trip?</Text>
+              <Text style={styles.deleteConfirmMessage}>
+                Are you sure you want to delete this trip? This cannot be undone.
+              </Text>
+              <View style={styles.deleteConfirmActions}>
+                <TouchableOpacity
+                  style={styles.deleteConfirmCancelButton}
+                  onPress={() => setShowDeleteConfirm(false)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.deleteConfirmCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteConfirmDeleteButton}
+                  onPress={handleConfirmDelete}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.deleteConfirmDeleteText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -961,5 +1028,62 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  deleteConfirmModal: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    padding: 20,
+  },
+  deleteConfirmTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  deleteConfirmMessage: {
+    color: '#cfcfcf',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  deleteConfirmCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#4a4a4a',
+    backgroundColor: '#333',
+  },
+  deleteConfirmCancelText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  deleteConfirmDeleteButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#dc3545',
+  },
+  deleteConfirmDeleteText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

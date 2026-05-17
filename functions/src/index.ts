@@ -294,7 +294,7 @@ export const createTrip = onCall<CreateTripRequest, Promise<CreateTripResponse>>
         };
       }
 
-      if (transportType && !['plane', 'boat', 'train', 'bus', 'car'].includes(transportType)) {
+      if (transportType && !['plane', 'boat', 'train', 'bus', 'car', 'taxi', 'bike'].includes(transportType)) {
         return {
           success: false,
           message: 'Invalid transport type',
@@ -637,7 +637,7 @@ export const updateTrip = onCall<UpdateTripRequest, Promise<UpdateTripResponse>>
         };
       }
 
-      if (transportType && !['plane', 'boat', 'train', 'bus', 'car'].includes(transportType)) {
+      if (transportType && !['plane', 'boat', 'train', 'bus', 'car', 'taxi', 'bike'].includes(transportType)) {
         return {
           success: false,
           message: 'Invalid transport type',

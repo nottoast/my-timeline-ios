@@ -40,7 +40,13 @@ const transportIconByType: Record<TransportType, React.ComponentProps<typeof Fon
   train: 'train',
   bus: 'bus',
   car: 'car',
+  taxi: 'taxi',
+  bike: 'bicycle',
 };
+
+function sortTripsByDateDescending(a: Trip, b: Trip) {
+  return new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime();
+}
 
 export default function TripTimeline({
   timelineItems,
@@ -110,56 +116,19 @@ export default function TripTimeline({
     );
   };
 
-  const renderChildTrip = (
-    child: Trip,
+  const renderSubTrip = (
+    trip: Trip,
+    isFirst: boolean,
     isLast: boolean,
     _isLastOverall: boolean,
     _isOnlyChild: boolean,
     totalChildren: number,
     parentTripId: string,
   ) => {
-    const isInFuture = isTripInFuture(child.tripDate);
-    return (
-      <TouchableOpacity
-        key={child.id}
-        style={styles.childTripContainer}
-        onPress={() => handleTripPress(child.id, parentTripId)}
-        activeOpacity={onTripPress ? 0.7 : 1}
-        disabled={!onTripPress}
-      >
-        <View style={styles.timelineColumn}>
-          <View
-            style={[
-              styles.childTimelineLine,
-              totalChildren > 1
-                ? {
-                    top: -50,
-                    bottom: isLast ? 0 : -50,
-                  }
-                : {},
-            ]}
-          />
-          <View style={styles.childTimelineCircle} />
-        </View>
-        <View style={isInFuture ? styles.childTripCardFuture : styles.childTripCard}>
-          {renderTripRoute(child)}
-          <Text style={styles.childTripDate}>{formatDate(child.tripDate)}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderOutboundTrip = (
-    trip: Trip,
-    _isLast: boolean,
-    _hasChildren: boolean,
-    totalChildren: number,
-    parentTripId: string,
-  ) => {
     const isInFuture = isTripInFuture(trip.tripDate);
     return (
       <TouchableOpacity
-        key={`${trip.id}-outbound`}
+        key={`${trip.id}-subtrip`}
         style={styles.childTripContainer}
         onPress={() => handleTripPress(trip.id, parentTripId)}
         activeOpacity={onTripPress ? 0.7 : 1}
@@ -171,8 +140,8 @@ export default function TripTimeline({
               styles.childTimelineLine,
               totalChildren > 1
                 ? {
-                    top: 0,
-                    bottom: -50,
+                    top: isFirst ? 0 : -50,
+                    bottom: isLast ? 0 : -50,
                   }
                 : {},
             ]}
@@ -189,8 +158,8 @@ export default function TripTimeline({
 
   const renderTimelineItem = ({ item, index }: { item: TimelineItem; index: number }) => {
     const isLast = index === timelineItems.length - 1;
-    const hasChildren = item.children.length > 0;
-    const totalChildren = 1 + item.children.length;
+    const sortedSubTrips = [item.trip, ...item.children].sort(sortTripsByDateDescending);
+    const totalChildren = sortedSubTrips.length;
     const isInFuture = isTripInFuture(item.trip.tripDate);
 
     const childTripHeight = 105;
@@ -222,12 +191,11 @@ export default function TripTimeline({
           </View>
         </TouchableOpacity>
 
-        {renderOutboundTrip(item.trip, isLast, hasChildren, totalChildren, item.trip.id)}
-
-        {item.children.map((child, childIndex) =>
-          renderChildTrip(
-            child,
-            childIndex === item.children.length - 1,
+        {sortedSubTrips.map((subTrip, subTripIndex) =>
+          renderSubTrip(
+            subTrip,
+            subTripIndex === 0,
+            subTripIndex === sortedSubTrips.length - 1,
             isLast,
             totalChildren === 1,
             totalChildren,
